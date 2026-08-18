@@ -160,7 +160,8 @@ export const SCREEN_ORDER = [
   's6',
 ] as const;
 
-export type ScreenId = (typeof SCREEN_ORDER)[number] | 's-stop';
+/** `s4b` et `s-stop` sont conditionnels : hors du déroulé nominal. */
+export type ScreenId = (typeof SCREEN_ORDER)[number] | 's4b' | 's-stop';
 
 export const SCREEN_META: Record<ScreenId, { label: string; pct: number }> = {
   s0: { label: 'Étape 1 sur 6 · Sécurité', pct: 8 },
@@ -168,7 +169,17 @@ export const SCREEN_META: Record<ScreenId, { label: string; pct: number }> = {
   s2: { label: 'Étape 3 sur 6 · Photo 2', pct: 40 },
   s3: { label: 'Étape 4 sur 6 · Photo 3', pct: 56 },
   s4: { label: 'Étape 5 sur 6 · Le problème', pct: 72 },
+  s4b: { label: 'Étape 5 sur 6 · Bandeau', pct: 78 },
   s5: { label: 'Étape 6 sur 6 · Vous', pct: 88 },
   s6: { label: 'Terminé', pct: 100 },
   's-stop': { label: 'Sécurité', pct: 8 },
 };
+
+/** Écran conditionnel : affiché seulement si le client déclare un écran ou des voyants. */
+export const BANDEAU_SCREEN = {
+  eyebrow: 'Une dernière chose',
+  title: 'Filmez le bandeau 10 secondes',
+  lead: "Les lumières ou l'écran nous disent ce que dit l'appareil. Filmez-le <b>10 secondes sans bouger</b>.",
+  skipLabel: 'Je préfère passer cette étape',
+  skipConfirm: 'Noté — le technicien lira le bandeau sur place.',
+} as const;

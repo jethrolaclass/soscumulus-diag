@@ -38,7 +38,12 @@ de cause.
 5. **Le token de dossier est opaque et aléatoire.** La référence `SC-0024`
    est un libellé d'affichage. Elle ne doit jamais servir de clé de routage.
 
-6. **Un danger déclaré interrompt le parcours et alerte l'équipe.** C'est à la
+6. **Les images du bandeau s'analysent ensemble, jamais séparément.** Un code
+   de défaut clignotant n'existe que dans l'écart entre deux images. Un seul
+   appel vision porte la séquence entière, et l'espacement des images est
+   régulier — ne pas les trier par netteté, ce serait détruire l'information.
+
+7. **Un danger déclaré interrompt le parcours et alerte l'équipe.** C'est à la
    fois une obligation de prudence et le lead le plus chaud du tunnel.
 
 ## Structure
@@ -47,7 +52,7 @@ de cause.
 shared/types.ts   contrat front ↔ API — toute évolution est une évolution d'API
 api/src/lib/      claude, schemas, db, sms, fiche, signing, http
 api/src/routes/   lead, dossier, photo, image
-web/src/lib/      image (normalisation + netteté), api (client)
+web/src/lib/      image (normalisation + netteté), video (extraction), api
 web/src/          questions.ts (données), main.ts (état + rendu)
 scripts/          pont Google Apps Script
 ```

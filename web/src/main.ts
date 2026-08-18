@@ -9,7 +9,9 @@ import type {
 import { BLOCKING_SAFETY_FLAGS } from '../../shared/types';
 import * as api from './lib/api';
 import { localGuidance, normalizePhoto } from './lib/image';
+import { extractFrames } from './lib/video';
 import {
+  BANDEAU_SCREEN,
   CONTEXT_QUESTIONS,
   PHOTO_SCREENS,
   PROBLEM_QUESTIONS,
@@ -47,6 +49,8 @@ const state = {
   submitting: false,
   /** Photo refusée par le pré-filtre local, conservée si le client insiste. */
   pendingBlob: null as Blob | null,
+  bandeauUi: emptyPhotoUi(),
+  bandeauSkipped: false,
 };
 
 function emptyPhotoUi(): PhotoUi {
@@ -98,6 +102,7 @@ function resumeScreen(d: Dossier): ScreenId {
     if (!p.uploaded && !p.skipped) return (`s${slot}` as ScreenId);
   }
   if (!d.answers.ou || !d.answers.eauChaude || !d.answers.ecran) return 's4';
+  if (d.answers.ecran === 'oui' && !d.bandeau.captured) return 's4b';
   if (!d.answers.statut || !d.answers.acces || !d.answers.dispo) return 's5';
   return 's5';
 }
@@ -159,6 +164,8 @@ function screenBody(): string {
       return photoScreen(Number(state.screen[1]) as PhotoSlot);
     case 's4':
       return questionScreen('Le problème', 'Trois questions rapides', PROBLEM_QUESTIONS);
+    case 's4b':
+      return bandeauScreen();
     case 's5':
       return questionScreen('Vous et votre logement', 'Presque terminé', CONTEXT_QUESTIONS);
     case 's6':
@@ -228,6 +235,39 @@ function photoScreen(slot: PhotoSlot): string {
     ${ui.keepOffered ? `<button class="skip" data-keep="${slot}">Garder cette photo quand même</button>` : ''}
     ${p.skipped ? '' : `<div><button class="skip" data-skip="${slot}">${cfg.skipLabel}</button></div>`}
     <input class="sr" type="file" accept="image/*" capture="environment" id="file-${slot}">
+  `;
+}
+
+/* ---------- Bandeau ---------- */
+
+function bandeauScreen(): string {
+  const ui = state.bandeauUi;
+  const b = state.dossier!.bandeau;
+
+  const verdict = ui.verdict
+    ? ui.verdict.tone === 'wait'
+      ? `<div class="verdict wait"><span class="spinner"></span>${escapeHtml(ui.verdict.text)}</div>`
+      : `<div class="verdict ${ui.verdict.tone}">${escapeHtml(ui.verdict.text)}</div>`
+    : '';
+
+  // Ce que le modèle a lu est renvoyé au client : voir « E3 » s'afficher
+  // confirme que la capture a servi à quelque chose.
+  const lecture =
+    b.analysis && (b.analysis.code || b.analysis.blinkPattern)
+      ? `<div class="learned">Lu sur le bandeau : ${escapeHtml(
+          b.analysis.code ?? b.analysis.blinkPattern ?? '',
+        )}</div>`
+      : '';
+
+  return `
+    <p class="eyebrow">${BANDEAU_SCREEN.eyebrow}</p>
+    <h1>${BANDEAU_SCREEN.title}</h1>
+    <p class="lead">${BANDEAU_SCREEN.lead}</p>
+    ${ui.previewUrl ? `<div class="shot"><img src="${ui.previewUrl}" alt="Image du bandeau"></div>` : ''}
+    ${verdict}
+    ${lecture}
+    ${state.bandeauSkipped ? '' : '<div><button class="skip" data-skip-bandeau>' + BANDEAU_SCREEN.skipLabel + '</button></div>'}
+    <input class="sr" type="file" accept="video/*" capture="environment" id="file-bandeau">
   `;
 }
 
@@ -336,6 +376,16 @@ function actionsBar(): string {
     disabled = !(state.answers.safety?.length ?? 0);
   } else if (state.screen === 's4') {
     disabled = !PROBLEM_QUESTIONS.every((q) => state.answers[q.key]);
+  } else if (state.screen === 's4b') {
+    const b = state.dossier!.bandeau;
+    if (state.bandeauUi.busy) {
+      label = 'Analyse en cours…';
+      disabled = true;
+    } else if (b.captured || state.bandeauSkipped) {
+      label = 'Continuer →';
+    } else {
+      label = '🎥 Filmer 10 secondes';
+    }
   } else if (state.screen === 's5') {
     label = state.submitting ? 'Envoi…' : 'Envoyer mon dossier';
     disabled = state.submitting || !CONTEXT_QUESTIONS.every((q) => state.answers[q.key]);
@@ -379,6 +429,13 @@ function bind(): void {
       .querySelector<HTMLInputElement>(`#file-${slot}`)
       ?.addEventListener('change', (e) => onFile(e, slot));
   }
+
+  app
+    .querySelector<HTMLInputElement>('#file-bandeau')
+    ?.addEventListener('change', onVideo);
+  app
+    .querySelector<HTMLButtonElement>('[data-skip-bandeau]')
+    ?.addEventListener('click', onSkipBandeau);
 }
 
 function onChoice(key: string, rawValue: string): void {
@@ -440,8 +497,18 @@ function onPrimary(): void {
   }
 
   if (state.screen === 's4') {
-    state.screen = 's5';
+    // Le bandeau n'a de sens que sur un appareil électronique.
+    state.screen = state.answers.ecran === 'oui' ? 's4b' : 's5';
     return render();
+  }
+
+  if (state.screen === 's4b') {
+    const b = state.dossier!.bandeau;
+    if (b.captured || state.bandeauSkipped) {
+      state.screen = 's5';
+      return render();
+    }
+    return app.querySelector<HTMLInputElement>('#file-bandeau')?.click();
   }
 
   if (state.screen === 's5') return void onSubmit();
@@ -449,7 +516,8 @@ function onPrimary(): void {
 
 function onBack(): void {
   const back: Partial<Record<ScreenId, ScreenId>> = {
-    s1: 's0', s2: 's1', s3: 's2', s4: 's3', s5: 's4',
+    s1: 's0', s2: 's1', s3: 's2', s4: 's3', s4b: 's4',
+    s5: state.answers.ecran === 'oui' ? 's4b' : 's4',
   };
   const target = back[state.screen];
   if (target) {
@@ -588,6 +656,82 @@ async function onSkip(slot: PhotoSlot): Promise<void> {
   state.dossier!.photos[slot].skipped = true;
   state.photoUi[slot].verdict = { tone: 'ok', text: PHOTO_SCREENS[slot].skipConfirm };
   state.photoUi[slot].keepOffered = false;
+  render();
+}
+
+/* ---------- Bandeau ---------- */
+
+async function onVideo(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+
+  const ui = state.bandeauUi;
+  ui.busy = true;
+  ui.verdict = { tone: 'wait', text: 'Lecture de la vidéo…' };
+  render();
+
+  let frames;
+  try {
+    frames = await extractFrames(file);
+  } catch {
+    // Codec exotique, vidéo tronquée, seek refusé : on ne peut rien extraire.
+    // Le client passe l'étape plutôt que de rester coincé dessus.
+    ui.busy = false;
+    ui.verdict = {
+      tone: 'ko',
+      text: "Cette vidéo n'a pas pu être lue. Réessayez, ou passez cette étape.",
+    };
+    return render();
+  }
+
+  if (ui.previewUrl) URL.revokeObjectURL(ui.previewUrl);
+  ui.previewUrl = frames.previewUrl;
+
+  try {
+    await api.uploadBandeauFrames(state.token, frames.blobs, (done, total) => {
+      ui.verdict = { tone: 'wait', text: `Envoi ${done} / ${total}…` };
+      render();
+    });
+  } catch {
+    ui.busy = false;
+    ui.verdict = { tone: 'ko', text: "L'envoi a échoué. Vérifiez votre réseau et réessayez." };
+    return render();
+  }
+
+  ui.verdict = { tone: 'wait', text: 'Lecture du bandeau…' };
+  render();
+
+  const dossier = await api.waitForBandeau(state.token);
+  ui.busy = false;
+
+  if (!dossier) {
+    state.dossier!.bandeau.captured = true;
+    ui.verdict = { tone: 'ok', text: '✓ Images reçues.' };
+    return render();
+  }
+
+  state.dossier = dossier;
+  const a = dossier.bandeau.analysis;
+
+  if (a && !a.usable && a.guidance) {
+    ui.verdict = { tone: 'ko', text: a.guidance };
+    return render();
+  }
+
+  ui.verdict = {
+    tone: 'ok',
+    text: a?.code
+      ? `✓ Code ${a.code} relevé sur le bandeau.`
+      : '✓ Bandeau enregistré.',
+  };
+  render();
+}
+
+function onSkipBandeau(): void {
+  state.bandeauSkipped = true;
+  state.bandeauUi.verdict = { tone: 'ok', text: BANDEAU_SCREEN.skipConfirm };
   render();
 }
 

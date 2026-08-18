@@ -116,6 +116,7 @@ function genererFiche(d) {
     '{{CONFIANCE}}': diag.confidence || '',
     '{{VISITE}}': diag.needsOnSite ? 'Oui' : 'Non',
     '{{NOTES}}': diag.technicianNotes || '',
+    '{{BANDEAU}}': bandeauTexte_(d.bandeau),
     '{{ACCES}}': (d.answers && d.answers.acces) || '',
     '{{DISPO}}': (d.answers && d.answers.dispo) || '',
   };
@@ -143,6 +144,17 @@ function genererFiche(d) {
   doc.saveAndClose();
   var pdf = dossier.createFile(copie.getAs('application/pdf')).setName('Fiche ' + d.ref + '.pdf');
   return { ok: true, doc: copie.getUrl(), pdf: pdf.getUrl() };
+}
+
+/** Rendu lisible de l'analyse du bandeau pour la fiche papier. */
+function bandeauTexte_(b) {
+  if (!b) return 'Non renseigné';
+  var lignes = [];
+  if (b.code) lignes.push('Code affiché : ' + b.code);
+  if (b.blinkPattern) lignes.push('Séquence : ' + b.blinkPattern);
+  if (b.indicators && b.indicators.length) lignes.push('Voyants : ' + b.indicators.join(', '));
+  if (b.interpretation) lignes.push('Lecture : ' + b.interpretation);
+  return lignes.length ? lignes.join('\n') : 'Aucun signal exploitable';
 }
 
 function plaqueDe_(d) {

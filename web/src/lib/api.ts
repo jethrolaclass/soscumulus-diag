@@ -71,6 +71,41 @@ export async function uploadPhoto(
 }
 
 /**
+ * Envoie les images du bandeau, dans l'ordre.
+ *
+ * Séquentiel et non parallèle : le réseau visé est celui d'une cave, où cinq
+ * requêtes concurrentes se gênent plus qu'elles ne s'aident, et l'ordre porte
+ * ici du sens. `onProgress` alimente l'indicateur d'avancement.
+ */
+export async function uploadBandeauFrames(
+  token: string,
+  blobs: Blob[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  for (let i = 0; i < blobs.length; i++) {
+    await request(`/api/dossier/${token}/bandeau?i=${i}&n=${blobs.length}`, {
+      method: 'POST',
+      headers: { 'content-type': 'image/jpeg' },
+      body: blobs[i],
+    });
+    onProgress?.(i + 1, blobs.length);
+  }
+}
+
+export async function waitForBandeau(
+  token: string,
+  { timeoutMs = 30_000, intervalMs = 1_500 } = {},
+): Promise<Dossier | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(intervalMs);
+    const dossier = await getDossier(token).catch(() => null);
+    if (dossier && dossier.bandeau.analysisStatus !== 'pending') return dossier;
+  }
+  return null;
+}
+
+/**
  * Attend le verdict du vLLM sur une photo.
  *
  * L'analyse tourne côté serveur après la réponse d'upload, ce qui évite de

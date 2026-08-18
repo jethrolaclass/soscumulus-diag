@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS dossiers (
   probleme    TEXT,
   answers     TEXT NOT NULL DEFAULT '{}',
   diagnostic  TEXT,
+  -- Bandeau de commande : 0 ou 1 capture par dossier, d'où des colonnes
+  -- plutôt qu'une table. `bandeau_frames` compte les images extraites.
+  bandeau_frames  INTEGER NOT NULL DEFAULT 0,
+  bandeau_analysis TEXT,
+  bandeau_status  TEXT NOT NULL DEFAULT 'idle',
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL,
   expires_at  TEXT NOT NULL

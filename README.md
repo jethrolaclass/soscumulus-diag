@@ -36,6 +36,11 @@ Deux décisions structurantes, détaillées dans les commentaires du code :
 - **Chaque photo est analysée dès son envoi**, pas à la fin. Le client est
   encore devant son appareil : c'est le seul moment où « rapprochez-vous de
   l'étiquette » sert à quelque chose.
+- **Le bandeau de commande se filme, mais la vidéo ne part jamais.** Cinq
+  images en sont extraites côté navigateur et analysées ensemble : un code de
+  défaut clignotant n'existe que dans l'écart entre deux images. La vidéo
+  brute pèse 15 à 25 Mo pour une information que 250 Ko d'images portent
+  aussi bien.
 
 ## Démarrage
 

@@ -16,9 +16,18 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import type { Diagnostic, PhotoAnalysis, PhotoSlot } from '../../../shared/types';
+import type {
+  BandeauAnalysis,
+  Diagnostic,
+  PhotoAnalysis,
+  PhotoSlot,
+} from '../../../shared/types';
 import type { Env } from '../env';
-import { PHOTO_ANALYSIS_SCHEMAS, DIAGNOSTIC_SCHEMA } from './schemas';
+import {
+  PHOTO_ANALYSIS_SCHEMAS,
+  DIAGNOSTIC_SCHEMA,
+  BANDEAU_SCHEMA,
+} from './schemas';
 
 const MODEL = 'claude-opus-5';
 
@@ -164,6 +173,69 @@ export async function analyzePhoto(
 }
 
 /* ------------------------------------------------------------------ */
+/* Bandeau de commande                                                 */
+/* ------------------------------------------------------------------ */
+
+const BANDEAU_PROMPT = `Tu reçois plusieurs images du bandeau de commande d'un chauffe-eau, extraites d'une même vidéo de dix secondes et espacées régulièrement dans le temps. Elles sont fournies dans l'ordre chronologique.
+
+Ta question n'est pas « que montre cette image » mais « qu'est-ce qui change d'une image à l'autre ». Les chauffe-eau électroniques signalent leurs défauts par une séquence : un voyant allumé sur deux images et éteint sur les trois autres décrit un clignotement, et le rythme fait partie du diagnostic autant que la couleur.
+
+Compare donc les images entre elles avant de conclure. Décris dans "blinkPattern" ce que tu observes de variation, en clair et sans jargon d'expert — par exemple « le voyant rouge de droite est allumé sur les images 1 et 3, éteint sur les autres, ce qui correspond à un clignotement lent ». Si tout est strictement identique d'une image à l'autre, blinkPattern vaut null et tu le signales comme un affichage fixe dans "indicators".
+
+Le champ "code" ne contient que ce qui est écrit à l'écran, transcrit tel quel. N'interprète pas dans ce champ et ne complète pas un caractère douteux : un code de défaut mal lu envoie le technicien sur une fausse piste.
+
+Le champ "interpretation" accueille ta lecture technique, mais uniquement si elle est fondée. Les codes de défaut varient d'un constructeur à l'autre et souvent d'une gamme à l'autre : si la signification exacte demande le manuel du modèle, mets null plutôt qu'une hypothèse. Décrire correctement le signal a plus de valeur que le traduire de travers.`;
+
+export async function analyzeBandeau(
+  env: Env,
+  frameUrls: string[],
+  context: { probleme: string | null },
+): Promise<BandeauAnalysis> {
+  const anthropic = client(env);
+
+  const response = await anthropic.beta.messages.create({
+    model: MODEL,
+    max_tokens: 4000,
+    ...REFUSAL_FALLBACK,
+    output_config: {
+      effort: 'medium',
+      format: { type: 'json_schema', schema: BANDEAU_SCHEMA },
+    },
+    system: [
+      { type: 'text', text: PREAMBLE, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: BANDEAU_PROMPT },
+    ],
+    messages: [
+      {
+        role: 'user',
+        content: [
+          // Chaque image est précédée de son rang : sans repère explicite, le
+          // modèle n'a aucun moyen de restituer l'ordre dans sa description.
+          ...frameUrls.flatMap((url, i) => [
+            { type: 'text' as const, text: `Image ${i + 1} sur ${frameUrls.length}` },
+            { type: 'image' as const, source: { type: 'url' as const, url } },
+          ]),
+          {
+            type: 'text' as const,
+            text: context.probleme
+              ? `Problème déclaré par le client : « ${context.probleme} ».`
+              : 'Décris ce qu\'affiche le bandeau.',
+          },
+        ],
+      },
+    ],
+  });
+
+  if (response.stop_reason === 'refusal') {
+    throw new VisionError('refusal', 'Analyse du bandeau déclinée.');
+  }
+
+  logUsage(env, 'bandeau', response.usage);
+  const parsed = parseJson<Omit<BandeauAnalysis, 'frameCount'>>(response);
+  return { ...parsed, frameCount: frameUrls.length };
+}
+
+/* ------------------------------------------------------------------ */
 /* Synthèse                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -172,6 +244,7 @@ export async function synthesize(
   payload: {
     answers: unknown;
     analyses: PhotoAnalysis[];
+    bandeau: BandeauAnalysis | null;
     ville: string | null;
     probleme: string | null;
   },

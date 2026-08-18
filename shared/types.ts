@@ -68,6 +68,8 @@ export interface Dossier {
   probleme: string | null;
   answers: Answers;
   photos: Record<PhotoSlot, PhotoState>;
+  /** Renseigné seulement si le client a déclaré un écran ou des voyants. */
+  bandeau: BandeauState;
   diagnostic: Diagnostic | null;
   createdAt: string;
   expiresAt: string;
@@ -139,6 +141,44 @@ export interface PhotoAnalysis {
   nameplate: Nameplate | null;
   installation: Installation | null;
   leak: Leak | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bandeau de commande (appareils électroniques)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Analyse d'une séquence d'images extraites de la vidéo du bandeau.
+ *
+ * Distincte de `PhotoAnalysis` parce que la question posée est différente :
+ * il ne s'agit pas de juger une image mais de lire une *séquence* — un code
+ * de défaut clignotant ne se déduit pas d'une image isolée.
+ */
+export interface BandeauAnalysis {
+  usable: boolean;
+  guidance: string | null;
+  displayType:
+    | 'afficheur_numerique'
+    | 'voyants'
+    | 'ecran_lcd'
+    | 'aucun'
+    | 'indetermine';
+  /** Code de défaut lu tel quel, ex. « E3 ». null si rien de lisible. */
+  code: string | null;
+  /** Description de la séquence observée d'une image à l'autre. */
+  blinkPattern: string | null;
+  /** Voyants observés, ex. « voyant rouge fixe à gauche ». */
+  indicators: string[];
+  /** Lecture technique du signal, si elle est possible sans le manuel. */
+  interpretation: string | null;
+  frameCount: number;
+}
+
+export interface BandeauState {
+  captured: boolean;
+  frameCount: number;
+  analysis: BandeauAnalysis | null;
+  analysisStatus: 'idle' | 'pending' | 'done' | 'failed';
 }
 
 /* ------------------------------------------------------------------ */

@@ -5,6 +5,8 @@
 
 import type {
   Answers,
+  BandeauAnalysis,
+  BandeauState,
   Diagnostic,
   Dossier,
   DossierStatus,
@@ -28,6 +30,9 @@ interface DossierRow {
   probleme: string | null;
   answers: string;
   diagnostic: string | null;
+  bandeau_frames: number;
+  bandeau_analysis: string | null;
+  bandeau_status: BandeauState['analysisStatus'];
   created_at: string;
   expires_at: string;
 }
@@ -104,6 +109,7 @@ export async function getDossier(
 ): Promise<Dossier | null> {
   const row = await env.DB.prepare(
     `SELECT token, ref, status, tel, ville, probleme, answers, diagnostic,
+            bandeau_frames, bandeau_analysis, bandeau_status,
             created_at, expires_at
        FROM dossiers WHERE token = ?`,
   )
@@ -143,6 +149,14 @@ export async function getDossier(
     probleme: row.probleme,
     answers: JSON.parse(row.answers) as Answers,
     photos,
+    bandeau: {
+      captured: row.bandeau_frames > 0,
+      frameCount: row.bandeau_frames,
+      analysis: row.bandeau_analysis
+        ? (JSON.parse(row.bandeau_analysis) as BandeauAnalysis)
+        : null,
+      analysisStatus: row.bandeau_status,
+    },
     diagnostic: row.diagnostic
       ? (JSON.parse(row.diagnostic) as Diagnostic)
       : null,
@@ -248,6 +262,47 @@ export async function markSkipped(
     .run();
 }
 
+/* ---------- Bandeau ---------- */
+
+/** Clé R2 d'une image de bandeau. Le rang fait partie de la clé : la séquence
+ *  n'a de sens que dans l'ordre. */
+export const bandeauKey = (token: string, index: number) =>
+  `${token}/bandeau-${String(index).padStart(2, '0')}.jpg`;
+
+export async function recordBandeauFrames(
+  env: Env,
+  token: string,
+  frameCount: number,
+): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE dossiers
+        SET bandeau_frames = ?, bandeau_analysis = NULL,
+            bandeau_status = 'pending', updated_at = ?
+      WHERE token = ?`,
+  )
+    .bind(frameCount, now(), token)
+    .run();
+}
+
+export async function saveBandeauAnalysis(
+  env: Env,
+  token: string,
+  analysis: BandeauAnalysis | null,
+): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE dossiers
+        SET bandeau_analysis = ?, bandeau_status = ?, updated_at = ?
+      WHERE token = ?`,
+  )
+    .bind(
+      analysis ? JSON.stringify(analysis) : null,
+      analysis ? 'done' : 'failed',
+      now(),
+      token,
+    )
+    .run();
+}
+
 export async function saveDiagnostic(
   env: Env,
   token: string,
@@ -301,12 +356,19 @@ export async function purgeExpired(env: Env): Promise<number> {
 
     await Promise.all(keys.map(({ r2_key }) => env.PHOTOS.delete(r2_key)));
 
+    // Les images de bandeau ne sont pas dans `photos` : on liste le préfixe
+    // du dossier pour n'en laisser aucune derrière.
+    const listed = await env.PHOTOS.list({ prefix: `${token}/` });
+    await Promise.all(listed.objects.map((o) => env.PHOTOS.delete(o.key)));
+
     await env.DB.batch([
       env.DB.prepare(`DELETE FROM photos WHERE dossier_token = ?`).bind(token),
       env.DB.prepare(
         `UPDATE dossiers
             SET status = 'expire', tel = '', ville = NULL, probleme = NULL,
-                answers = '{}', diagnostic = NULL, updated_at = ?
+                answers = '{}', diagnostic = NULL,
+                bandeau_frames = 0, bandeau_analysis = NULL,
+                bandeau_status = 'idle', updated_at = ?
           WHERE token = ?`,
       ).bind(now(), token),
     ]);

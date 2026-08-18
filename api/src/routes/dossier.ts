@@ -82,6 +82,7 @@ export async function handleSubmit(
   const diagnostic = await synthesize(env, {
     answers: dossier.answers,
     analyses,
+    bandeau: dossier.bandeau.analysis,
     ville: dossier.ville,
     probleme: dossier.probleme,
   });
@@ -91,7 +92,7 @@ export async function handleSubmit(
     env,
     token,
     'dossier_soumis',
-    `photos=${analyses.length} urgence=${diagnostic.urgency} confiance=${diagnostic.confidence}`,
+    `photos=${analyses.length} bandeau=${dossier.bandeau.captured} urgence=${diagnostic.urgency} confiance=${diagnostic.confidence}`,
   );
 
   // La fiche part en arrière-plan : sa génération ne doit pas retarder l'écran

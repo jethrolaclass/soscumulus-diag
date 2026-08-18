@@ -203,3 +203,58 @@ export const DIAGNOSTIC_SCHEMA: JsonSchema = {
     },
   },
 };
+
+/**
+ * Bandeau de commande. Le modèle voit plusieurs images d'une même scène prises
+ * à intervalle régulier : la question porte sur ce qui *change* entre elles.
+ */
+export const BANDEAU_SCHEMA: JsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'usable',
+    'guidance',
+    'displayType',
+    'code',
+    'blinkPattern',
+    'indicators',
+    'interpretation',
+  ],
+  properties: {
+    usable: { type: 'boolean' },
+    guidance: {
+      type: nullable('string'),
+      description:
+        'Une phrase à la deuxième personne du pluriel si la capture est à refaire. null sinon.',
+    },
+    displayType: {
+      type: 'string',
+      enum: [
+        'afficheur_numerique',
+        'voyants',
+        'ecran_lcd',
+        'aucun',
+        'indetermine',
+      ],
+    },
+    code: {
+      type: nullable('string'),
+      description: "Code lu tel qu'affiché, sans interprétation. Ex. « E3 ».",
+    },
+    blinkPattern: {
+      type: nullable('string'),
+      description:
+        "Ce qui change d'une image à l'autre, décrit en clair. null si rien ne varie.",
+    },
+    indicators: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Voyants observés, un par entrée, avec couleur et position.',
+    },
+    interpretation: {
+      type: nullable('string'),
+      description:
+        "Lecture technique du signal. null si elle exige le manuel du modèle.",
+    },
+  },
+};

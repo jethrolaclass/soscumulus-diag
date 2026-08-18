@@ -71,6 +71,7 @@ export async function pushFiche(
         probleme: dossier.probleme,
         answers: dossier.answers,
         diagnostic: dossier.diagnostic,
+        bandeau: dossier.bandeau.analysis,
         photos,
         createdAt: dossier.createdAt,
       }),
