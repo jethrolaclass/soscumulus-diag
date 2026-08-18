@@ -3,10 +3,21 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Domaine personnalisé. `custom_domain` crée l'enregistrement DNS et demande
+# le certificat — contrairement à une simple `route`, qui suppose un
+# enregistrement existant et n'aurait rien résolu.
+#
+# Deuxième niveau volontairement : le SSL universel ne couvre pas les
+# sous-domaines de troisième niveau, et api.diag.soscumulus.fr aurait imposé
+# Advanced Certificate Manager.
+routes = [
+  { pattern = "diag-api.soscumulus.fr", custom_domain = true }
+]
+
 # Variables non sensibles. Les secrets passent par `wrangler secret put` :
 #   ANTHROPIC_API_KEY, SIGNING_KEY, SMS_API_KEY, LEAD_SECRET, FICHE_SECRET
 [vars]
-PUBLIC_API_URL    = "https://soscumulus-diag-api.maxime-peron.workers.dev"
+PUBLIC_API_URL    = "https://diag-api.soscumulus.fr"
 PUBLIC_WEB_URL    = "https://soscumulus-diag.pages.dev"
 FICHE_WEBHOOK_URL = ""
 SMS_SENDER        = "SOSCumulus"
