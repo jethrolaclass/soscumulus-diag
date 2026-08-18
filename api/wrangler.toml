@@ -16,7 +16,7 @@ LOG_USAGE         = "true"
 [[d1_databases]]
 binding       = "DB"
 database_name = "soscumulus-diag"
-database_id   = "REMPLACER_APRES_wrangler_d1_create"
+database_id   = "0baff45c-afca-4306-81c2-4ab27c28e88a"
 
 [[r2_buckets]]
 binding     = "PHOTOS"

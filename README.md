@@ -79,9 +79,12 @@ FICHE_SECRET=<aléatoire>
 
 ```bash
 # 1. Ressources Cloudflare
-npx wrangler d1 create soscumulus-diag        # reporter l'id dans wrangler.toml
-npx wrangler r2 bucket create soscumulus-diag-photos
-npm run db:remote --workspace=api
+# D1 et R2 sont déjà créés ; leur identifiant est dans api/wrangler.toml.
+# Pour repartir de zéro sur un autre compte :
+#   npx wrangler d1 create soscumulus-diag   → reporter l'id dans wrangler.toml
+#   npx wrangler r2 bucket create soscumulus-diag-photos
+
+npm run db:remote --workspace=api            # applique le schéma
 
 # 2. Secrets
 cd api
