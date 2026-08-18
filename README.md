@@ -155,10 +155,41 @@ qu'elle ne correspond pas exactement, le navigateur bloque tous les appels.
 npm run deploy:api
 ```
 
-### 5. Worker en CI/CD (optionnel)
+### 5. Worker en CI/CD
 
-Même principe côté Workers Builds, avec `api` comme répertoire racine et
-`npx wrangler deploy` comme commande de déploiement.
+Connecter le dépôt au Worker `soscumulus-diag-api` (Workers → Settings →
+Build), avec :
+
+| Réglage | Valeur |
+|---|---|
+| Répertoire racine | *(racine du dépôt)* |
+| Build command | `npm install && npm run build:api` |
+| Deploy command | `npm run deploy:api` |
+
+Le répertoire racine reste la racine du dépôt : c'est là que vivent le
+lockfile et les workspaces. `deploy:api` passe `--config api/wrangler.toml`
+à wrangler, qui résout `main` relativement à ce fichier.
+
+`build:api` n'est qu'un `tsc --noEmit` : wrangler transpile lui-même. Il sert
+à faire échouer le build sur une erreur de types plutôt qu'à déployer un
+Worker cassé.
+
+**Filtrer les chemins** (Build → Include paths) pour qu'un push touchant
+uniquement le front ne redéploie pas l'API :
+
+```
+api/*
+shared/*
+package.json
+package-lock.json
+```
+
+> ⚠️ Le jeton injecté dans les builds Cloudflare est restreint. `wrangler
+> deploy` relève de son périmètre, mais `api/wrangler.toml` déclare aussi un
+> `custom_domain`, dont la création touche le DNS de la zone. Le domaine étant
+> déjà attaché, wrangler ne devrait rien avoir à recréer — si le déploiement
+> échoue malgré tout sur une erreur d'autorisation, retirer le bloc `routes`
+> du fichier de configuration suffit : le domaine reste attaché au Worker.
 
 ### Côté Google Apps Script
 
