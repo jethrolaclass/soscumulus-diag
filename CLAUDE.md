@@ -35,21 +35,27 @@ de cause.
    site fournit téléphone, ville et problème. Ils sont rappelés à l'écran,
    jamais ressaisis.
 
-5. **Le token de dossier est opaque et aléatoire.** La référence `SC-0024`
+5. **R2 est un tampon, Drive est l'archive.** R2 porte le travail en ligne et
+   ne garde rien au-delà de sept jours ; le dossier d'intervention durable vit
+   dans Drive, déposé par Apps Script qui y est déjà authentifié. Ne pas
+   introduire de compte de service ni de JWT dans le Worker pour rapatrier ce
+   rôle — c'est précisément ce que ce découpage évite.
+
+6. **Le token de dossier est opaque et aléatoire.** La référence `SC-0024`
    est un libellé d'affichage. Elle ne doit jamais servir de clé de routage.
 
-6. **Les images du bandeau s'analysent ensemble, jamais séparément.** Un code
+7. **Les images du bandeau s'analysent ensemble, jamais séparément.** Un code
    de défaut clignotant n'existe que dans l'écart entre deux images. Un seul
    appel vision porte la séquence entière, et l'espacement des images est
    régulier — ne pas les trier par netteté, ce serait détruire l'information.
 
-7. **L'envoi de la vidéo du bandeau ne bloque rien.** Ni le bouton
+8. **L'envoi de la vidéo du bandeau ne bloque rien.** Ni le bouton
    « Continuer », ni la soumission, ni la génération de fiche n'attendent sa
    promesse. Il démarre après l'affichage du verdict, jamais avant : lancé
    plus tôt, vingt mégaoctets concurrenceraient les requêtes de sondage sur le
    même lien montant.
 
-8. **Un danger déclaré interrompt le parcours et alerte l'équipe.** C'est à la
+9. **Un danger déclaré interrompt le parcours et alerte l'équipe.** C'est à la
    fois une obligation de prudence et le lead le plus chaud du tunnel.
 
 ## Structure
@@ -64,6 +70,21 @@ scripts/          pont Google Apps Script
 ```
 
 `api/src/lib/claude.ts` est le **seul** point de contact avec le modèle.
+
+## Durées de conservation
+
+Trois durées, à garder cohérentes — le texte de l'écran d'accueil les annonce
+au client :
+
+| Où | Durée | Qui purge |
+|---|---|---|
+| R2 + D1 | 7 jours | cron Worker (`purgeExpired`) |
+| Drive | 2 ans | `purgerArchives`, déclencheur mensuel Apps Script |
+| URL signée | 5 min (vision) / 7 j (fiche) | expiration de la signature |
+
+Changer l'une de ces durées oblige à changer le texte affiché dans
+`welcomeScreen()`. Une promesse fausse à cet endroit est un problème de
+conformité, pas une approximation d'interface.
 
 ## Conventions
 

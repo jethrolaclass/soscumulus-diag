@@ -10,7 +10,7 @@
 
 import type { Dossier, PhotoSlot, SafetyFlag } from '../../../shared/types';
 import type { Env } from '../env';
-import { bandeauVideoKey, getPhotoKey, logEvent } from './db';
+import { bandeauKey, bandeauVideoKey, getPhotoKey, logEvent } from './db';
 import { signedImageUrl } from './signing';
 
 /**
@@ -59,6 +59,21 @@ export async function pushFiche(
     }),
   );
 
+  // Les images du bandeau partent aussi vers l'archive : ce sont elles que le
+  // modèle a réellement lues, donc les seules qui permettent de recontrôler
+  // une lecture douteuse.
+  const bandeauFrames = await Promise.all(
+    Array.from({ length: dossier.bandeau.frameCount }, async (_, i) => ({
+      index: i,
+      url: await signedImageUrl(
+        env.SIGNING_KEY,
+        env.PUBLIC_API_URL,
+        bandeauKey(token, i),
+        FICHE_LINK_TTL_S,
+      ),
+    })),
+  );
+
   // L'envoi de la vidéo est différé : à l'instant où la fiche se génère, elle
   // peut être arrivée, en cours, ou jamais partie. On interroge R2 plutôt que
   // de se fier à l'état lu en base au moment de la soumission.
@@ -85,6 +100,7 @@ export async function pushFiche(
         answers: dossier.answers,
         diagnostic: dossier.diagnostic,
         bandeau: dossier.bandeau.analysis,
+        bandeauFrames,
         bandeauVideoUrl: videoUrl,
         photos,
         createdAt: dossier.createdAt,

@@ -219,7 +219,7 @@ function welcomeScreen(): string {
     <div class="known">${known}</div>
     ${d.probleme ? `<p class="hint">Votre demande : « ${escapeHtml(d.probleme)} »</p>` : ''}
     <div class="card">${questionBlock(SAFETY_QUESTION)}</div>
-    <div class="trust"><span class="lock">🔒</span>Vos photos ne servent qu'à votre diagnostic et sont supprimées sous 7 jours.</div>
+    <div class="trust"><span class="lock">🔒</span>Vos photos ne servent qu'à votre diagnostic et à votre dossier d'intervention, conservé 2 ans.</div>
   `;
 }
 

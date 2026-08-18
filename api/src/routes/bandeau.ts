@@ -107,12 +107,15 @@ async function analyzeInBackground(
 /* ------------------------------------------------------------------ */
 
 /**
- * Un Worker refuse un corps de requête au-delà de 100 Mo. On borne en deçà
- * pour rendre un message clair plutôt que de laisser la plateforme couper.
+ * Plafond dicté par l'aval, pas par le Worker : `UrlFetchApp` d'Apps Script
+ * refuse une réponse au-delà de 50 Mo, et c'est lui qui recopie la vidéo dans
+ * l'archive Drive. Accepter davantage ici produirait une vidéo bien stockée
+ * dans R2 mais silencieusement absente du dossier d'intervention.
+ *
  * Dix secondes en 1080p tiennent autour de 20 Mo ; seul un enregistrement en
- * 4K approche cette limite.
+ * 4K HDR approcherait cette limite.
  */
-const MAX_VIDEO_BYTES = 96 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 45 * 1024 * 1024;
 
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp'];
 

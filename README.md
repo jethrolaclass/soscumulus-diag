@@ -16,16 +16,16 @@ Formulaire site → Google Apps Script → Worker /api/lead → SMS
                                             ↓
                         R2 (photos) · Claude vision · D1 (dossier)
                                             ↓
-                              Fiche d'intervention (Google Docs)
+                    Dossier Drive : fiche + photos + vidéo (2 ans)
 ```
 
 | Composant | Emplacement | Hébergement |
 |---|---|---|
 | Front | `web/` | Cloudflare Pages |
 | API | `api/` | Cloudflare Workers |
-| Photos | — | R2, purgées à 7 jours |
+| Photos, vidéo | — | R2 (tampon 7 jours) puis Drive (archive 2 ans) |
 | Dossiers | — | D1 |
-| Fiche + alertes | `scripts/apps-script.gs` | Google Apps Script |
+| Fiche, archive, alertes | `scripts/apps-script.gs` | Google Apps Script |
 
 Deux décisions structurantes, détaillées dans les commentaires du code :
 
@@ -107,24 +107,45 @@ redirection SPA dans Pages (`web/public/_redirects` : `/* /index.html 200`).
 Voir l'en-tête de [`scripts/apps-script.gs`](scripts/apps-script.gs). Le script
 existant du formulaire est conservé : on lui ajoute un appel à `/api/lead`.
 
-## Données personnelles
+## Stockage et données personnelles
 
-Les photos montrent le domicile du client. Le dispositif en tient compte :
+Les photos montrent le domicile du client. Deux étages, deux rôles :
+
+| | R2 | Drive |
+|---|---|---|
+| Rôle | tampon de travail | dossier d'intervention |
+| Durée | 7 jours | 2 ans |
+| Purge | cron Worker quotidien | `purgerArchives`, déclencheur mensuel |
+| Accès | URL signée, 5 min | dossier partagé de l'équipe |
+
+Ce découpage évite d'introduire un compte de service et un JWT RS256 dans le
+Worker : Apps Script est déjà authentifié auprès de Drive et récupère déjà les
+photos pour les insérer dans le Doc. Il les dépose au passage comme fichiers.
+
+Autres mesures :
 
 - redimensionnement et ré-encodage côté navigateur, **qui supprime les EXIF**,
   donc les coordonnées GPS, avant tout envoi ;
-- bucket R2 privé, accès uniquement par URL signée expirant en 5 minutes ;
+- bucket R2 privé, jamais public ; accès uniquement par URL signée ;
 - token de dossier aléatoire et opaque — la référence lisible `SC-0024`
   n'apparaît jamais dans une URL ;
-- purge automatique à 7 jours (cron quotidien) : photos supprimées, dossier
-  vidé de toute donnée personnelle, référence conservée pour la traçabilité.
+- la purge R2 vide aussi le dossier D1 de toute donnée personnelle et ne
+  conserve que la référence, pour la traçabilité comptable.
+
+> ⚠️ **Le déclencheur mensuel sur `purgerArchives` fait partie du dispositif.**
+> Sans lui, la durée de 2 ans annoncée au client dans l'écran d'accueil n'est
+> pas tenue et l'archive croît indéfiniment.
 
 L'appel au modèle passe par l'API Anthropic sous conditions commerciales, ce
 qui fournit le cadre contractuel nécessaire au traitement de ces images.
 
 ## Coût
 
-Environ **0,08 € par diagnostic** (Opus 5, trois photos, cache prompt actif).
-L'hébergement Cloudflare tient dans les paliers gratuits jusqu'à plusieurs
-milliers de dossiers par mois ; le plan Workers à 5 $/mois reste recommandé en
-production pour lever le plafond de CPU et le quota journalier.
+Environ **0,08 € par diagnostic** (Opus 5, trois photos, cache prompt actif),
+plus ~0,03 € sur les dossiers avec bandeau électronique.
+
+L'hébergement Cloudflare tient dans les paliers gratuits : R2 ne conservant
+que sept jours, le stock y reste très en dessous des 10 Go offerts quel que
+soit le volume. L'archive de deux ans vit sur le quota Workspace déjà payé.
+Le plan Workers à 5 $/mois reste recommandé en production pour lever le
+plafond de CPU et le quota journalier.

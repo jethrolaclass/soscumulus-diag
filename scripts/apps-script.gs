@@ -20,8 +20,16 @@
  *        TEMPLATE_ID   id du Google Doc modèle
  *        DOSSIER_ID    id du dossier Drive où déposer les fiches
  *        ALERTE_EMAIL  destinataire des alertes sécurité
+ *        ARCHIVE_ANS   durée de conservation des dossiers, en années
  *   4. Déployer en web app, accès « Tout le monde », et reporter l'URL dans
  *      la variable FICHE_WEBHOOK_URL de wrangler.toml.
+ *   5. Créer un déclencheur horaire mensuel sur `purgerArchives` — sans lui,
+ *      la durée de conservation annoncée au client n'est pas tenue.
+ *
+ * Répartition du stockage : R2 est un tampon de sept jours pour le travail en
+ * ligne — envoi, analyse, URL signées. Drive est l'archive durable, dans le
+ * dossier d'intervention. Les liens signés reçus ici expirent avec le dossier,
+ * d'où la recopie des fichiers plutôt que la conservation des URL.
  */
 
 var P = PropertiesService.getScriptProperties();
@@ -91,8 +99,15 @@ function traiterLead(data) {
 
 function genererFiche(d) {
   var modele = DriveApp.getFileById(P.getProperty('TEMPLATE_ID'));
-  var dossier = DriveApp.getFolderById(P.getProperty('DOSSIER_ID'));
-  var copie = modele.makeCopy('Fiche ' + d.ref + ' — ' + (d.ville || ''), dossier);
+  var racine = DriveApp.getFolderById(P.getProperty('DOSSIER_ID'));
+
+  // Un sous-dossier par intervention : le technicien ouvre un seul endroit et
+  // y trouve la fiche, les photos, les images du bandeau et la vidéo.
+  var dossier = racine.createFolder(
+    d.ref + ' — ' + (d.ville || 'sans commune') + ' — ' +
+      Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd'),
+  );
+  var copie = modele.makeCopy('Fiche ' + d.ref, dossier);
 
   var doc = DocumentApp.openById(copie.getId());
   var corps = doc.getBody();
@@ -146,7 +161,86 @@ function genererFiche(d) {
 
   doc.saveAndClose();
   var pdf = dossier.createFile(copie.getAs('application/pdf')).setName('Fiche ' + d.ref + '.pdf');
-  return { ok: true, doc: copie.getUrl(), pdf: pdf.getUrl() };
+
+  archiver_(dossier, d);
+
+  return { ok: true, doc: copie.getUrl(), pdf: pdf.getUrl(), dossier: dossier.getUrl() };
+}
+
+/**
+ * Recopie les médias depuis R2 vers le dossier d'intervention.
+ *
+ * Chaque fichier est isolé dans son propre try : une photo manquante ne doit
+ * pas empêcher l'archivage des autres ni faire échouer la fiche, qui est déjà
+ * écrite à ce stade.
+ */
+function archiver_(dossier, d) {
+  var aRecopier = [];
+
+  (d.photos || []).forEach(function (p) {
+    if (p.url) aRecopier.push({ url: p.url, nom: 'photo-' + p.slot + '.jpg' });
+  });
+  (d.bandeauFrames || []).forEach(function (f) {
+    aRecopier.push({
+      url: f.url,
+      nom: 'bandeau-' + String(f.index + 1) + '.jpg',
+    });
+  });
+  if (d.bandeauVideoUrl) {
+    aRecopier.push({ url: d.bandeauVideoUrl, nom: 'bandeau-source.mp4' });
+  }
+
+  aRecopier.forEach(function (item) {
+    try {
+      var res = UrlFetchApp.fetch(item.url, { muteHttpExceptions: true });
+      if (res.getResponseCode() !== 200) {
+        console.error('archivage ' + item.nom + ' : HTTP ' + res.getResponseCode());
+        return;
+      }
+      dossier.createFile(res.getBlob().setName(item.nom));
+    } catch (err) {
+      // Cas le plus probable : vidéo au-delà des 50 Mo qu'UrlFetchApp accepte.
+      // Le Worker plafonne en amont, mais la garde reste utile.
+      console.error('archivage ' + item.nom + ' impossible : ' + err);
+    }
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Purge de l'archive                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Supprime les dossiers d'intervention au-delà de la durée de conservation.
+ *
+ * À déclencher mensuellement. Sans ce déclencheur, la durée annoncée au client
+ * n'est pas tenue et l'archive croît indéfiniment.
+ *
+ * `setTrashed` et non `removeFile` : la corbeille Drive continue de compter
+ * dans le quota et le fichier reste récupérable trente jours, ce qui laisse
+ * une marge en cas de purge accidentelle. La suppression définitive intervient
+ * ensuite d'elle-même.
+ */
+function purgerArchives() {
+  var ans = Number(P.getProperty('ARCHIVE_ANS') || '2');
+  var limite = new Date();
+  limite.setFullYear(limite.getFullYear() - ans);
+
+  var racine = DriveApp.getFolderById(P.getProperty('DOSSIER_ID'));
+  var dossiers = racine.getFolders();
+  var supprimes = 0;
+
+  while (dossiers.hasNext()) {
+    var d = dossiers.next();
+    if (d.getDateCreated() < limite) {
+      d.setTrashed(true);
+      supprimes++;
+    }
+  }
+
+  if (supprimes > 0) {
+    console.log('purge archive : ' + supprimes + ' dossier(s) au-delà de ' + ans + ' ans');
+  }
 }
 
 /** Rendu lisible de l'analyse du bandeau pour la fiche papier. */
