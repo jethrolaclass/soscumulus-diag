@@ -20,7 +20,7 @@ database_id   = "0baff45c-afca-4306-81c2-4ab27c28e88a"
 
 [[r2_buckets]]
 binding     = "PHOTOS"
-bucket_name = "soscumulus-diag-photos"
+bucket_name = "soscumulus-diag-r1"
 
 # Purge RGPD quotidienne. Le Cron gratuit est limité à 5 déclencheurs par
 # compte : celui-ci est le seul dont le service a besoin.
