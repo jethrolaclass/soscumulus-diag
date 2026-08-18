@@ -58,7 +58,10 @@ export async function verify(
  * voisins. La référence lisible reste affichée dans l'interface, pas routée.
  */
 export function newDossierToken(): string {
-  const bytes = new Uint8Array(24);
+  // 16 octets, soit 128 bits — au-delà de toute énumération, et dix caractères
+  // de moins qu'avec 24 octets. Sur un SMS facturé par tranche de 160
+  // caractères, la longueur de l'URL n'est pas un détail cosmétique.
+  const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return base64url(bytes.buffer);
 }

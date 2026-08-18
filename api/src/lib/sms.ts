@@ -13,7 +13,15 @@ import { logEvent } from './db';
 
 const BREVO_ENDPOINT = 'https://api.brevo.com/v3/transactionalSMS/sms';
 
-/** Longueur maximale d'un SMS avant segmentation (GSM-7). */
+/**
+ * Longueur maximale d'un segment en alphabet GSM-7. Au-delà, l'opérateur
+ * scinde et facture deux SMS.
+ *
+ * ‼️ Le message ne doit contenir AUCUN caractère accentué. Un seul « é » bascule
+ * l'encodage en UCS-2 et ramène la limite à 70 caractères — le message devient
+ * alors trois segments au lieu d'un. C'est pourquoi le texte ci-dessous écrit
+ * « recu » et « Etablissez » sans accent : ce n'est pas une faute à corriger.
+ */
 const SINGLE_SEGMENT = 160;
 
 export class SmsError extends Error {
@@ -40,10 +48,8 @@ export function normalizePhone(raw: string): string | null {
 }
 
 export function diagMessage(url: string): string {
-  // Formulé pour tenir en un segment : au-delà de 160 caractères le message
-  // est facturé double et peut arriver scindé sur certains opérateurs.
-  const body = `SOS Cumulus : nous avons bien recu votre demande. Etablissez votre diagnostic a distance en 2 min avec 3 photos, sans frais de deplacement : ${url}`;
-  return body;
+  // Calibre : ce texte plus une URL de 51 caracteres tient sous 160.
+  return `SOS Cumulus : votre diagnostic a distance en 2 min avec 3 photos, sans frais de deplacement : ${url}`;
 }
 
 export async function sendDiagSms(
@@ -60,7 +66,10 @@ export async function sendDiagSms(
 
   const content = diagMessage(url);
   if (content.length > SINGLE_SEGMENT) {
-    console.warn(`SMS sur ${Math.ceil(content.length / SINGLE_SEGMENT)} segments`);
+    // Journalisé et non simplement affiché : c'est une derive de facturation,
+    // pas un incident technique, et elle passerait autrement inapercue.
+    const segments = Math.ceil(content.length / SINGLE_SEGMENT);
+    await logEvent(env, token, 'sms_multi_segment', `${content.length} car., ${segments} segments`);
   }
 
   const res = await fetch(BREVO_ENDPOINT, {
