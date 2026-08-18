@@ -26,6 +26,17 @@ export interface Env {
   SMS_SENDER: string;
   /** Numéro affiché au client en cas d'arrêt sécurité. */
   URGENCE_TEL: string;
+  /**
+   * Liste blanche d'envoi SMS, numéros séparés par des virgules.
+   *
+   * Non vide : seuls ces numéros reçoivent réellement un SMS — les autres
+   * dossiers sont créés normalement, avec leur lien, mais rien ne part. C'est
+   * le garde-fou de la phase de test.
+   *
+   * **Vider cette variable pour la mise en service.** Tant qu'elle est
+   * renseignée, aucun client réel ne reçoit son lien.
+   */
+  SMS_ALLOWLIST?: string;
   /** "true" pour tracer la consommation de tokens. */
   LOG_USAGE?: string;
 }

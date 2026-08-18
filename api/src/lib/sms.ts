@@ -52,6 +52,28 @@ export function diagMessage(url: string): string {
   return `SOS Cumulus : votre diagnostic a distance en 2 min avec 3 photos, sans frais de deplacement : ${url}`;
 }
 
+/**
+ * Le numéro est-il autorisé à recevoir un SMS ?
+ *
+ * Comparaison faite sur les numéros normalisés, pour que la liste puisse être
+ * écrite dans n'importe quel format — « 07 88 08 91 28 » et « +33788089128 »
+ * désignent le même destinataire.
+ */
+export function smsAllowed(
+  recipient: string,
+  allowlist: string | undefined,
+): boolean {
+  const entries = (allowlist ?? '')
+    .split(',')
+    .map((n) => n.trim())
+    .filter(Boolean);
+
+  // Liste vide : comportement de production, tout le monde reçoit.
+  if (entries.length === 0) return true;
+
+  return entries.some((n) => normalizePhone(n) === recipient);
+}
+
 export async function sendDiagSms(
   env: Env,
   token: string,
@@ -61,6 +83,17 @@ export async function sendDiagSms(
   const recipient = normalizePhone(tel);
   if (!recipient) {
     await logEvent(env, token, 'sms_numero_invalide', tel);
+    return false;
+  }
+
+  if (!smsAllowed(recipient, env.SMS_ALLOWLIST)) {
+    // Le dossier reste créé et son lien valide : l'e-mail de lead l'affichera
+    // avec la mention « SMS non envoyé », et l'équipe pourra le transmettre.
+    await logEvent(env, token, 'sms_hors_liste_test', recipient);
+    console.warn(
+      `SMS non envoyé à ${recipient} : liste blanche de test active (SMS_ALLOWLIST). ` +
+        'Vider cette variable pour la mise en service.',
+    );
     return false;
   }
 

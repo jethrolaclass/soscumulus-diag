@@ -71,6 +71,17 @@ scripts/          pont Google Apps Script
 
 `api/src/lib/claude.ts` est le **seul** point de contact avec le modèle.
 
+## Phase de test : les SMS ne partent pas
+
+`SMS_ALLOWLIST` dans `api/wrangler.toml` restreint l'envoi aux seuls numéros
+listés. Tout autre numéro — donc tout client réel — voit son dossier créé et
+son lien resté valide, mais **ne reçoit aucun SMS**. L'e-mail de lead affiche
+alors « SMS non envoyé » pour que l'équipe puisse transmettre le lien à la
+main si elle le souhaite.
+
+**Vider cette variable est l'acte de mise en service.** Tant qu'elle est
+renseignée, aucun client ne reçoit son lien automatiquement.
+
 ## Durées de conservation
 
 Trois durées, à garder cohérentes — le texte de l'écran d'accueil les annonce
