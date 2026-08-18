@@ -141,8 +141,9 @@ Le répertoire racine reste à la racine du dépôt : c'est là que vivent le
 échoue explicitement si elle manque, plutôt que de produire un front qui
 appelle sa propre origine et répond 404 sur tout.
 
-La version de Node est épinglée par `web/.node-version` — Vite 6 exige Node 20
-et l'image par défaut de Pages est plus ancienne.
+La version de Node est épinglée par `.node-version`, **à la racine du dépôt** —
+Pages le cherche dans le répertoire racine configuré, pas dans `web/`. Vite 6
+exige Node 20 et l'image par défaut de Pages est plus ancienne.
 
 ### 4. Boucler CORS
 

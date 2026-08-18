@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 #   ANTHROPIC_API_KEY, SIGNING_KEY, SMS_API_KEY, LEAD_SECRET, FICHE_SECRET
 [vars]
 PUBLIC_API_URL    = "https://soscumulus-diag-api.maxime-peron.workers.dev"
-PUBLIC_WEB_URL    = "https://diag.soscumulus.fr"
+PUBLIC_WEB_URL    = "https://soscumulus-diag.pages.dev"
 FICHE_WEBHOOK_URL = ""
 SMS_SENDER        = "SOSCumulus"
 URGENCE_TEL       = "+33621560983"
