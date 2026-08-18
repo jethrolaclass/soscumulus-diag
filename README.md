@@ -162,8 +162,30 @@ Même principe côté Workers Builds, avec `api` comme répertoire racine et
 
 ### Côté Google Apps Script
 
-Voir l'en-tête de [`scripts/apps-script.gs`](scripts/apps-script.gs). Le script
-existant du formulaire est conservé : on lui ajoute un appel à `/api/lead`.
+[`scripts/apps-script.gs`](scripts/apps-script.gs) est un remplacement complet
+du script existant : il conserve le Sheet, l'e-mail HTML et le suivi de statut,
+et y ajoute l'ouverture du dossier de diagnostic, la fiche d'intervention,
+l'alerte sécurité et la purge de l'archive.
+
+Propriétés du script à renseigner (Paramètres du projet → Propriétés) :
+
+| Propriété | Valeur |
+|---|---|
+| `API_URL` | `https://diag-api.soscumulus.fr` |
+| `LEAD_SECRET` | identique au secret Worker — voir `api/.dev.vars` |
+| `FICHE_SECRET` | identique au secret Worker |
+| `TEMPLATE_ID` | id du Google Doc modèle |
+| `DOSSIER_ID` | id du dossier Drive d'archivage |
+| `ARCHIVE_ANS` | `2` |
+
+Puis relancer `setupStatusColumn` une fois (la colonne G accueille désormais le
+lien de diagnostic), et créer le déclencheur mensuel sur `purgerArchives`.
+
+Le modèle Docs doit contenir les balises `{{REF}}`, `{{TEL}}`, `{{VILLE}}`,
+`{{PROBLEME}}`, `{{DATE}}`, `{{APPAREIL}}`, `{{SYNTHESE}}`, `{{CAUSE}}`,
+`{{ACTION}}`, `{{URGENCE}}`, `{{PIECES}}`, `{{DUREE}}`, `{{CONFIANCE}}`,
+`{{VISITE}}`, `{{NOTES}}`, `{{BANDEAU}}`, `{{VIDEO}}`, `{{ACCES}}`,
+`{{DISPO}}` et `{{PHOTOS}}`.
 
 ## Stockage et données personnelles
 
