@@ -233,7 +233,6 @@ function safetyStopScreen(): string {
         <li>Coupez le disjoncteur du chauffe-eau (ou le général).</li>
         <li>Fermez le robinet d'arrivée d'eau sous l'appareil, ou l'arrivée générale.</li>
         <li>Ne touchez pas aux fils. Éloignez ce qui est électrique de l'eau.</li>
-        <li>Odeur de gaz : ouvrez les fenêtres, ne touchez à aucun interrupteur, sortez et appelez le 18.</li>
       </ol>
       <a class="call" href="tel:${escapeHtml(state.data!.emergencyPhone)}">📞 Nous appeler maintenant</a>
     </div>

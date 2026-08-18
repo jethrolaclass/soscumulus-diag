@@ -319,7 +319,6 @@ function sendSafetyAlert(d) {
   var labels = {
     breaker_tripped: "Le disjoncteur a sauté",
     water_near_electrics: "De l'eau coule près de prises ou d'appareils électriques",
-    gas_smell: "Odeur de gaz",
   };
   var reasons = (d.flags || []).map(function (f) { return labels[f] || f; });
 

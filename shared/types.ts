@@ -15,17 +15,18 @@ export const PHOTO_SLOTS: Record<PhotoSlot, { key: string; label: string }> = {
 /* Safety — assessed before anything else                              */
 /* ------------------------------------------------------------------ */
 
-export type SafetyFlag =
-  | 'breaker_tripped'
-  | 'water_near_electrics'
-  | 'gas_smell'
-  | 'none';
+/**
+ * No gas hazard here: SOS Cumulus only services electric water heaters, so the
+ * question is never asked. The `gas` value on `Nameplate.type` is a different
+ * matter and stays — a client may well own a gas unit and call anyway, and the
+ * technician is better off knowing before driving out.
+ */
+export type SafetyFlag = 'breaker_tripped' | 'water_near_electrics' | 'none';
 
 /** Any one of these flags stops the journey and triggers a call back. */
 export const BLOCKING_SAFETY_FLAGS: readonly SafetyFlag[] = [
   'breaker_tripped',
   'water_near_electrics',
-  'gas_smell',
 ];
 
 /* ------------------------------------------------------------------ */

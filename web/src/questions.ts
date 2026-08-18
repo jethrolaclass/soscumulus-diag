@@ -41,7 +41,6 @@ export const SAFETY_QUESTION: Question = {
       icon: '💧',
       tone: 'danger',
     },
-    { value: 'gas_smell', label: 'Une odeur de gaz', icon: '🔥', tone: 'danger' },
     { value: 'none', label: 'Aucun de ces cas', icon: '✓', tone: 'safe' },
   ],
 };

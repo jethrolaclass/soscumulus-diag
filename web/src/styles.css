@@ -29,15 +29,26 @@ body {
 }
 
 .stage { min-height: 100dvh; display: flex; justify-content: center; }
-.phone {
+
+/*
+ * Single narrow column, on every screen. The journey is designed for a phone
+ * held in one hand, and a client who opens the link on a laptop gets the same
+ * layout rather than a stretched one.
+ *
+ * The prototype drew a device bezel here to signal "this is mobile" during a
+ * desktop demo. In production that reads as a mockup instead of a working
+ * tool, so the desktop treatment is a plain card.
+ */
+.shell {
   width: 100%; max-width: 430px; background: var(--cream);
   display: flex; flex-direction: column; min-height: 100dvh; position: relative;
 }
 @media (min-width: 560px) {
-  .stage { padding: 24px 0; align-items: flex-start; }
-  .phone {
-    min-height: 860px; border-radius: 34px; overflow: hidden;
-    box-shadow: 0 30px 80px rgba(15, 45, 92, .25), 0 0 0 10px #0d1a2e;
+  .stage { padding: 32px 16px; align-items: flex-start; }
+  .shell {
+    min-height: min(760px, calc(100dvh - 64px));
+    border-radius: 18px; overflow: hidden;
+    box-shadow: 0 18px 48px -20px rgba(15, 45, 92, .28);
   }
 }
 
