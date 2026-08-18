@@ -77,33 +77,83 @@ FICHE_SECRET=<aléatoire>
 
 ## Mise en production
 
+L'ordre compte : le front a besoin de l'URL de l'API pour être construit, et
+l'API a besoin de l'origine du front pour autoriser CORS. On déploie donc le
+Worker d'abord.
+
+### 1. Schéma et secrets
+
 ```bash
-# 1. Ressources Cloudflare
-# D1 et R2 sont déjà créés ; leur identifiant est dans api/wrangler.toml.
-# Pour repartir de zéro sur un autre compte :
-#   npx wrangler d1 create soscumulus-diag   → reporter l'id dans wrangler.toml
-#   npx wrangler r2 bucket create soscumulus-diag-r1
+npm run db:remote --workspace=api      # crée les tables dans D1
 
-npm run db:remote --workspace=api            # applique le schéma
-
-# 2. Secrets
 cd api
 npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put SIGNING_KEY
+npx wrangler secret put SIGNING_KEY    # openssl rand -base64 32
 npx wrangler secret put SMS_API_KEY
 npx wrangler secret put LEAD_SECRET
 npx wrangler secret put FICHE_SECRET
-
-# 3. Déploiement
-npm run deploy:api
-npm run build && npx wrangler pages deploy web/dist --project-name=soscumulus-diag
 ```
 
-Puis, dans `api/wrangler.toml`, renseigner `FICHE_WEBHOOK_URL` avec l'URL du
-web app Apps Script et `URGENCE_TEL` avec le numéro d'astreinte.
+Les secrets vivent sur le Worker, pas dans le build : une fois posés, tous les
+déploiements suivants les conservent.
 
-Le front sert toutes les routes `/d/*` sur `index.html` — configurer la
-redirection SPA dans Pages (`web/public/_redirects` : `/* /index.html 200`).
+### 2. Worker
+
+```bash
+npm run deploy:api
+```
+
+Noter l'URL renvoyée (`https://soscumulus-diag-api.<compte>.workers.dev`) et la
+reporter dans `PUBLIC_API_URL` de `api/wrangler.toml`.
+
+> ⚠️ `PUBLIC_API_URL` n'est pas cosmétique : c'est la base des URL signées que
+> l'API vision va chercher pour lire les photos. Fausse, toutes les analyses
+> échouent — et silencieusement, puisque le parcours est conçu pour ne jamais
+> bloquer le client.
+
+### 3. Front — Cloudflare Pages
+
+**Par la CLI**, pour voir le rendu tout de suite :
+
+```bash
+VITE_API_URL=https://<worker>.workers.dev npm run build
+npx wrangler pages deploy web/dist --project-name=soscumulus-diag
+```
+
+**Par l'intégration Git**, pour un déploiement à chaque push. Dans le tableau
+de bord Pages, connecter le dépôt puis :
+
+| Réglage | Valeur |
+|---|---|
+| Répertoire racine | *(laisser à la racine)* |
+| Commande de build | `npm install && npm run build --workspace=web` |
+| Répertoire de sortie | `web/dist` |
+| Variable d'environnement | `VITE_API_URL` = URL du Worker |
+
+Le répertoire racine reste à la racine du dépôt : c'est là que vivent le
+`package.json` des workspaces et le lockfile, dont `npm install` a besoin.
+
+`VITE_API_URL` est lue **au moment du build**, pas à l'exécution. Le build
+échoue explicitement si elle manque, plutôt que de produire un front qui
+appelle sa propre origine et répond 404 sur tout.
+
+La version de Node est épinglée par `web/.node-version` — Vite 6 exige Node 20
+et l'image par défaut de Pages est plus ancienne.
+
+### 4. Boucler CORS
+
+Reporter l'URL Pages dans `PUBLIC_WEB_URL` de `api/wrangler.toml`, puis
+redéployer le Worker. Cette valeur est l'origine unique autorisée : tant
+qu'elle ne correspond pas exactement, le navigateur bloque tous les appels.
+
+```bash
+npm run deploy:api
+```
+
+### 5. Worker en CI/CD (optionnel)
+
+Même principe côté Workers Builds, avec `api` comme répertoire racine et
+`npx wrangler deploy` comme commande de déploiement.
 
 ### Côté Google Apps Script
 
