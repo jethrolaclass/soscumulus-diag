@@ -1,0 +1,31 @@
+name = "soscumulus-diag-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Variables non sensibles. Les secrets passent par `wrangler secret put` :
+#   ANTHROPIC_API_KEY, SIGNING_KEY, SMS_API_KEY, LEAD_SECRET, FICHE_SECRET
+[vars]
+PUBLIC_API_URL    = "https://api.diag.soscumulus.fr"
+PUBLIC_WEB_URL    = "https://diag.soscumulus.fr"
+FICHE_WEBHOOK_URL = ""
+SMS_SENDER        = "SOSCumulus"
+URGENCE_TEL       = "+33000000000"
+LOG_USAGE         = "true"
+
+[[d1_databases]]
+binding       = "DB"
+database_name = "soscumulus-diag"
+database_id   = "REMPLACER_APRES_wrangler_d1_create"
+
+[[r2_buckets]]
+binding     = "PHOTOS"
+bucket_name = "soscumulus-diag-photos"
+
+# Purge RGPD quotidienne. Le Cron gratuit est limité à 5 déclencheurs par
+# compte : celui-ci est le seul dont le service a besoin.
+[triggers]
+crons = ["17 3 * * *"]
+
+[observability]
+enabled = true

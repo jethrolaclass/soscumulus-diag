@@ -1,0 +1,15 @@
+{
+  "name": "soscumulus-diag",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SOS Diag Express — diagnostic à distance de chauffe-eau à partir de 3 photos",
+  "workspaces": ["api", "web"],
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "dev:api": "npm run dev --workspace=api",
+    "build": "npm run build --workspace=web",
+    "deploy:api": "npm run deploy --workspace=api",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": { "node": ">=20" }
+}
