@@ -11,6 +11,10 @@
 const encoder = new TextEncoder();
 
 async function hmacKey(secret: string): Promise<CryptoKey> {
+  // WebCrypto rejette une clé HMAC de longueur nulle par une erreur opaque.
+  // Un secret absent est une erreur de configuration : la nommer évite de
+  // chercher un bug de signature là où il manque un `wrangler secret put`.
+  if (!secret) throw new Error('SIGNING_KEY absente ou vide.');
   return crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -98,8 +102,15 @@ export async function verifyImageUrl(
   exp: string | null,
   sig: string | null,
 ): Promise<boolean> {
-  if (!exp || !sig) return false;
+  // La vérification refuse toujours plutôt que de lever : cette route est
+  // exposée publiquement, et une erreur interne y renseignerait un attaquant
+  // sur l'état de la configuration.
+  if (!secret || !exp || !sig) return false;
   const expiry = Number(exp);
   if (!Number.isFinite(expiry) || expiry < Date.now() / 1000) return false;
-  return verify(secret, `${key}:${expiry}`, sig);
+  try {
+    return await verify(secret, `${key}:${expiry}`, sig);
+  } catch {
+    return false;
+  }
 }

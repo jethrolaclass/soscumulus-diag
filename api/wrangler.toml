@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 # Variables non sensibles. Les secrets passent par `wrangler secret put` :
 #   ANTHROPIC_API_KEY, SIGNING_KEY, SMS_API_KEY, LEAD_SECRET, FICHE_SECRET
 [vars]
-PUBLIC_API_URL    = "https://api.diag.soscumulus.fr"
+PUBLIC_API_URL    = "https://soscumulus-diag-api.maxime-peron.workers.dev"
 PUBLIC_WEB_URL    = "https://diag.soscumulus.fr"
 FICHE_WEBHOOK_URL = ""
 SMS_SENDER        = "SOSCumulus"

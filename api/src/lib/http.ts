@@ -69,9 +69,18 @@ export function parseSlot(raw: string | null): PhotoSlot {
   return n as PhotoSlot;
 }
 
-/** Comparaison à temps constant d'un secret partagé. */
-export function secretMatches(provided: string | null, expected: string): boolean {
-  if (!provided || provided.length !== expected.length) return false;
+/**
+ * Comparaison à temps constant d'un secret partagé.
+ *
+ * Un `expected` absent — secret jamais posé sur le Worker — refuse au lieu de
+ * lever : sans cette garde, une configuration incomplète répondait 500 au lieu
+ * de 401, ce qui envoie chercher un bug là où il n'y a qu'un secret manquant.
+ */
+export function secretMatches(
+  provided: string | null,
+  expected: string | undefined,
+): boolean {
+  if (!provided || !expected || provided.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < provided.length; i++) {
     diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
