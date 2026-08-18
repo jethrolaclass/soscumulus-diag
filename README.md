@@ -83,6 +83,10 @@ Worker d'abord.
 
 ### 1. Schéma et secrets
 
+Les commandes en `--workspace=` s'exécutent **depuis la racine du dépôt** : les
+workspaces n'y sont déclarés que là. Depuis `api/`, appeler les scripts locaux
+sans préfixe (`npm run db:remote`, `npm run deploy`).
+
 ```bash
 npm run db:remote --workspace=api      # crée les tables dans D1
 
@@ -100,7 +104,7 @@ déploiements suivants les conservent.
 ### 2. Worker
 
 ```bash
-npm run deploy:api
+cd .. && npm run deploy:api             # ou, depuis api/ : npm run deploy
 ```
 
 Noter l'URL renvoyée (`https://soscumulus-diag-api.<compte>.workers.dev`) et la
