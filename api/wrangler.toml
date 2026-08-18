@@ -18,7 +18,7 @@ routes = [
 #   ANTHROPIC_API_KEY, SIGNING_KEY, SMS_API_KEY, LEAD_SECRET, FICHE_SECRET
 [vars]
 PUBLIC_API_URL    = "https://diag-api.soscumulus.fr"
-PUBLIC_WEB_URL    = "https://soscumulus-diag.pages.dev"
+PUBLIC_WEB_URL    = "https://diag.soscumulus.fr"
 FICHE_WEBHOOK_URL = ""
 SMS_SENDER        = "SOSCumulus"
 URGENCE_TEL       = "+33621560983"
