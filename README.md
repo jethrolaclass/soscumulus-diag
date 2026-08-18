@@ -132,14 +132,16 @@ de bord Pages, connecter le dépôt puis :
 | Répertoire racine | *(laisser à la racine)* |
 | Commande de build | `npm install && npm run build --workspace=web` |
 | Répertoire de sortie | `web/dist` |
-| Variable d'environnement | `VITE_API_URL` = URL du Worker |
 
 Le répertoire racine reste à la racine du dépôt : c'est là que vivent le
 `package.json` des workspaces et le lockfile, dont `npm install` a besoin.
 
-`VITE_API_URL` est lue **au moment du build**, pas à l'exécution. Le build
-échoue explicitement si elle manque, plutôt que de produire un front qui
-appelle sa propre origine et répond 404 sur tout.
+**Aucune variable d'environnement à déclarer.** L'origine de l'API vit dans
+`web/src/lib/api.ts`. Elle a d'abord été une variable de build Cloudflare, et
+cette seconde source de vérité a dérivé : elle nommait encore l'hôte
+`workers.dev` après la bascule sur le domaine propre, si bien que chaque build
+déployé appelait un hôte qui ne servait plus le Worker. `VITE_API_URL` n'est
+désormais lue qu'en développement.
 
 La version de Node est épinglée par `.node-version`, **à la racine du dépôt** —
 Pages le cherche dans le répertoire racine configuré, pas dans `web/`. Vite 6

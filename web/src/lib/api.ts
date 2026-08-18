@@ -1,6 +1,21 @@
 import type { Answers, Diagnosis, DiagnosisCase, PhotoSlot } from '../../../shared/types';
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+/**
+ * Production API origin.
+ *
+ * Held in the repository, not in a Cloudflare dashboard field. That field was
+ * a second source of truth and it drifted: it still named the workers.dev
+ * hostname after the custom domain replaced it, so every deployed build called
+ * a host that no longer served the Worker.
+ *
+ * `VITE_API_URL` is honoured in development only. A stale value in the build
+ * environment can therefore no longer break production.
+ */
+const PRODUCTION_API = 'https://diag-api.soscumulus.fr';
+
+const BASE = import.meta.env.DEV
+  ? ((import.meta.env.VITE_API_URL as string | undefined) ?? '')
+  : PRODUCTION_API;
 
 export class ApiError extends Error {
   constructor(
