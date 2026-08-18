@@ -177,6 +177,12 @@ export interface BandeauAnalysis {
 export interface BandeauState {
   captured: boolean;
   frameCount: number;
+  /**
+   * La vidéo source, conservée pour vérification humaine. Son envoi est
+   * différé et n'a jamais bloqué le parcours : `false` signifie donc
+   * « pas encore arrivée », pas « le client n'a rien filmé ».
+   */
+  videoUploaded: boolean;
   analysis: BandeauAnalysis | null;
   analysisStatus: 'idle' | 'pending' | 'done' | 'failed';
 }

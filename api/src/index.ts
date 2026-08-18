@@ -4,7 +4,7 @@ import { handleLead } from './routes/lead';
 import { handleGetDossier, handleAnswers, handleSubmit } from './routes/dossier';
 import { handlePhotoUpload, handleSkipPhoto } from './routes/photo';
 import { handleImage } from './routes/image';
-import { handleBandeauFrame } from './routes/bandeau';
+import { handleBandeauFrame, handleBandeauVideo } from './routes/bandeau';
 import { json, preflight, withCors, ApiHttpError } from './lib/http';
 
 export default {
@@ -77,6 +77,10 @@ async function route(
     // POST /api/dossier/:token/bandeau?i=<rang>&n=<total>
     if (seg[3] === 'bandeau' && seg.length === 4 && method === 'POST') {
       return handleBandeauFrame(req, env, ctx, token, url.searchParams);
+    }
+    // POST /api/dossier/:token/bandeau/video
+    if (seg[3] === 'bandeau' && seg[4] === 'video' && method === 'POST') {
+      return handleBandeauVideo(req, env, token);
     }
     // POST /api/dossier/:token/submit
     if (seg[3] === 'submit' && seg.length === 4 && method === 'POST') {

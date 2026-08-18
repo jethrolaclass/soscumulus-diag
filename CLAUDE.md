@@ -43,7 +43,13 @@ de cause.
    appel vision porte la séquence entière, et l'espacement des images est
    régulier — ne pas les trier par netteté, ce serait détruire l'information.
 
-7. **Un danger déclaré interrompt le parcours et alerte l'équipe.** C'est à la
+7. **L'envoi de la vidéo du bandeau ne bloque rien.** Ni le bouton
+   « Continuer », ni la soumission, ni la génération de fiche n'attendent sa
+   promesse. Il démarre après l'affichage du verdict, jamais avant : lancé
+   plus tôt, vingt mégaoctets concurrenceraient les requêtes de sondage sur le
+   même lien montant.
+
+8. **Un danger déclaré interrompt le parcours et alerte l'équipe.** C'est à la
    fois une obligation de prudence et le lead le plus chaud du tunnel.
 
 ## Structure

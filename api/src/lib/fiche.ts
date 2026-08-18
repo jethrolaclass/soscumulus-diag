@@ -10,7 +10,7 @@
 
 import type { Dossier, PhotoSlot, SafetyFlag } from '../../../shared/types';
 import type { Env } from '../env';
-import { getPhotoKey, logEvent } from './db';
+import { bandeauVideoKey, getPhotoKey, logEvent } from './db';
 import { signedImageUrl } from './signing';
 
 /**
@@ -59,6 +59,19 @@ export async function pushFiche(
     }),
   );
 
+  // L'envoi de la vidéo est différé : à l'instant où la fiche se génère, elle
+  // peut être arrivée, en cours, ou jamais partie. On interroge R2 plutôt que
+  // de se fier à l'état lu en base au moment de la soumission.
+  const videoKey = bandeauVideoKey(token);
+  const videoUrl = (await env.PHOTOS.head(videoKey))
+    ? await signedImageUrl(
+        env.SIGNING_KEY,
+        env.PUBLIC_API_URL,
+        videoKey,
+        FICHE_LINK_TTL_S,
+      )
+    : null;
+
   try {
     const res = await fetch(webhookUrl(env), {
       method: 'POST',
@@ -72,6 +85,7 @@ export async function pushFiche(
         answers: dossier.answers,
         diagnostic: dossier.diagnostic,
         bandeau: dossier.bandeau.analysis,
+        bandeauVideoUrl: videoUrl,
         photos,
         createdAt: dossier.createdAt,
       }),

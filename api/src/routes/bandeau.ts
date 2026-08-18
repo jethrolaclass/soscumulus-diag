@@ -2,9 +2,11 @@ import type { Env } from '../env';
 import { analyzeBandeau } from '../lib/claude';
 import {
   bandeauKey,
+  bandeauVideoKey,
   getDossier,
   logEvent,
   recordBandeauFrames,
+  recordBandeauVideo,
   saveBandeauAnalysis,
 } from '../lib/db';
 import { signedImageUrl } from '../lib/signing';
@@ -98,4 +100,54 @@ async function analyzeInBackground(
     await saveBandeauAnalysis(env, token, null);
     await logEvent(env, token, 'bandeau_analyse_echec', null);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Vidéo source                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un Worker refuse un corps de requête au-delà de 100 Mo. On borne en deçà
+ * pour rendre un message clair plutôt que de laisser la plateforme couper.
+ * Dix secondes en 1080p tiennent autour de 20 Mo ; seul un enregistrement en
+ * 4K approche cette limite.
+ */
+const MAX_VIDEO_BYTES = 96 * 1024 * 1024;
+
+const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp'];
+
+/**
+ * Conserve l'enregistrement d'origine pour vérification humaine.
+ *
+ * Volontairement hors du chemin critique : le client a déjà pu poursuivre
+ * grâce aux images extraites, et cet envoi se déroule pendant qu'il répond aux
+ * dernières questions. S'il échoue ou s'interrompt — réseau perdu, onglet
+ * fermé — le dossier reste complet et le diagnostic exploitable.
+ */
+export async function handleBandeauVideo(
+  req: Request,
+  env: Env,
+  token: string,
+): Promise<Response> {
+  const dossier = await getDossier(env, token);
+  if (!dossier) throw notFound();
+
+  const type = (req.headers.get('content-type') ?? '').split(';')[0].trim();
+  if (!VIDEO_TYPES.includes(type)) {
+    throw badRequest(`Format vidéo non accepté (${type || 'inconnu'}).`);
+  }
+
+  const declared = Number(req.headers.get('content-length') ?? '0');
+  if (declared > MAX_VIDEO_BYTES) {
+    await logEvent(env, token, 'bandeau_video_trop_lourde', String(declared));
+    throw badRequest('Vidéo trop volumineuse.', 'payload_too_large');
+  }
+  if (!req.body) throw badRequest('Corps de requête vide.');
+
+  const key = bandeauVideoKey(token);
+  await env.PHOTOS.put(key, req.body, { httpMetadata: { contentType: type } });
+  await recordBandeauVideo(env, token, key);
+  await logEvent(env, token, 'bandeau_video_recue', `${type} ${declared} octets`);
+
+  return json({ accepted: true }, 201);
 }

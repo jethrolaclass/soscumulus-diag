@@ -117,6 +117,9 @@ function genererFiche(d) {
     '{{VISITE}}': diag.needsOnSite ? 'Oui' : 'Non',
     '{{NOTES}}': diag.technicianNotes || '',
     '{{BANDEAU}}': bandeauTexte_(d.bandeau),
+    // Un Doc ne peut pas embarquer de vidéo : on pose un lien. Il expire avec
+    // le dossier, à sept jours — au-delà, la fiche reste lisible sans lui.
+    '{{VIDEO}}': d.bandeauVideoUrl || 'Aucune vidéo',
     '{{ACCES}}': (d.answers && d.answers.acces) || '',
     '{{DISPO}}': (d.answers && d.answers.dispo) || '',
   };

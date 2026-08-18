@@ -33,6 +33,7 @@ interface DossierRow {
   bandeau_frames: number;
   bandeau_analysis: string | null;
   bandeau_status: BandeauState['analysisStatus'];
+  bandeau_video_key: string | null;
   created_at: string;
   expires_at: string;
 }
@@ -109,7 +110,7 @@ export async function getDossier(
 ): Promise<Dossier | null> {
   const row = await env.DB.prepare(
     `SELECT token, ref, status, tel, ville, probleme, answers, diagnostic,
-            bandeau_frames, bandeau_analysis, bandeau_status,
+            bandeau_frames, bandeau_analysis, bandeau_status, bandeau_video_key,
             created_at, expires_at
        FROM dossiers WHERE token = ?`,
   )
@@ -152,6 +153,7 @@ export async function getDossier(
     bandeau: {
       captured: row.bandeau_frames > 0,
       frameCount: row.bandeau_frames,
+      videoUploaded: Boolean(row.bandeau_video_key),
       analysis: row.bandeau_analysis
         ? (JSON.parse(row.bandeau_analysis) as BandeauAnalysis)
         : null,
@@ -269,6 +271,21 @@ export async function markSkipped(
 export const bandeauKey = (token: string, index: number) =>
   `${token}/bandeau-${String(index).padStart(2, '0')}.jpg`;
 
+/** Clé unique : un seul enregistrement de bandeau par dossier. */
+export const bandeauVideoKey = (token: string) => `${token}/bandeau-source`;
+
+export async function recordBandeauVideo(
+  env: Env,
+  token: string,
+  key: string,
+): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE dossiers SET bandeau_video_key = ?, updated_at = ? WHERE token = ?`,
+  )
+    .bind(key, now(), token)
+    .run();
+}
+
 export async function recordBandeauFrames(
   env: Env,
   token: string,
@@ -368,7 +385,8 @@ export async function purgeExpired(env: Env): Promise<number> {
             SET status = 'expire', tel = '', ville = NULL, probleme = NULL,
                 answers = '{}', diagnostic = NULL,
                 bandeau_frames = 0, bandeau_analysis = NULL,
-                bandeau_status = 'idle', updated_at = ?
+                bandeau_status = 'idle', bandeau_video_key = NULL,
+                updated_at = ?
           WHERE token = ?`,
       ).bind(now(), token),
     ]);

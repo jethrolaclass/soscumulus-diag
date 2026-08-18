@@ -51,6 +51,14 @@ const state = {
   pendingBlob: null as Blob | null,
   bandeauUi: emptyPhotoUi(),
   bandeauSkipped: false,
+  /** Envoi de la vidéo source, mené en tâche de fond. */
+  video: {
+    active: false,
+    ratio: 0,
+    lastPct: -1,
+    failed: false,
+    abort: null as (() => void) | null,
+  },
 };
 
 function emptyPhotoUi(): PhotoUi {
@@ -125,12 +133,32 @@ function render(): void {
       <div class="progress" aria-hidden="true"><i style="width:${meta.pct}%"></i></div>
       <div class="step-label"><span>${meta.label}</span><span>≈ 2 minutes</span></div>
     </header>
+    ${backgroundUploadBar()}
     <main class="body">${screenBody()}</main>
     ${actionsBar()}
   `;
 
   bind();
   app.querySelector('.body')?.scrollTo({ top: 0 });
+}
+
+/**
+ * Visible sur tous les écrans tant que l'envoi dure : la vidéo continue de
+ * partir pendant que le client répond aux dernières questions, et il doit
+ * pouvoir le constater sans revenir en arrière.
+ */
+function backgroundUploadBar(): string {
+  const v = state.video;
+  if (v.failed) {
+    return `<div class="bgupload">La vidéo n'a pas pu être envoyée — sans conséquence, vos images ont bien été reçues.</div>`;
+  }
+  if (!v.active) return '';
+  return `
+    <div class="bgupload" role="status">
+      <span>Envoi de la vidéo</span>
+      <span class="bar"><i style="width:${Math.round(v.ratio * 100)}%"></i></span>
+      <span>${Math.round(v.ratio * 100)} %</span>
+    </div>`;
 }
 
 function slotStrip(): string {
@@ -706,6 +734,12 @@ async function onVideo(event: Event): Promise<void> {
   const dossier = await api.waitForBandeau(state.token);
   ui.busy = false;
 
+  // L'envoi de la vidéo ne démarre qu'ici, une fois le verdict obtenu. Le
+  // lancer plus tôt ferait concurrencer vingt mégaoctets et les requêtes de
+  // sondage sur le même lien montant, et retarderait précisément ce que le
+  // client attend à l'écran.
+  startVideoUpload(file);
+
   if (!dossier) {
     state.dossier!.bandeau.captured = true;
     ui.verdict = { tone: 'ok', text: '✓ Images reçues.' };
@@ -727,6 +761,45 @@ async function onVideo(event: Event): Promise<void> {
       : '✓ Bandeau enregistré.',
   };
   render();
+}
+
+/**
+ * Conserve l'enregistrement d'origine pour vérification humaine.
+ *
+ * Rien n'attend cette promesse : ni le bouton « Continuer », ni la soumission.
+ * Un échec est signalé sans dramatisation — les images extraites portent déjà
+ * l'information nécessaire au diagnostic.
+ */
+function startVideoUpload(file: File): void {
+  state.video.abort?.();
+  state.video = { active: true, ratio: 0, lastPct: -1, failed: false, abort: null };
+
+  const { done, abort } = api.uploadBandeauVideo(state.token, file, (ratio) => {
+    state.video.ratio = ratio;
+    // Un rendu par point de pourcentage suffit : rafraîchir à chaque événement
+    // de progression reconstruirait le DOM des dizaines de fois par seconde.
+    const pct = Math.round(ratio * 100);
+    if (pct !== state.video.lastPct) {
+      state.video.lastPct = pct;
+      render();
+    }
+  });
+  state.video.abort = abort;
+
+  void done
+    .then(() => {
+      state.video.active = false;
+      if (state.dossier) state.dossier.bandeau.videoUploaded = true;
+    })
+    .catch((err) => {
+      state.video.active = false;
+      // Une annulation volontaire n'est pas un échec à signaler.
+      state.video.failed = !(err instanceof api.ApiError && err.code === 'aborted');
+    })
+    .finally(() => {
+      state.video.abort = null;
+      render();
+    });
 }
 
 function onSkipBandeau(): void {

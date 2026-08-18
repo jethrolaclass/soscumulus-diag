@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS dossiers (
   bandeau_frames  INTEGER NOT NULL DEFAULT 0,
   bandeau_analysis TEXT,
   bandeau_status  TEXT NOT NULL DEFAULT 'idle',
+  bandeau_video_key TEXT,
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL,
   expires_at  TEXT NOT NULL

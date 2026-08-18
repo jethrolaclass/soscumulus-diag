@@ -92,6 +92,48 @@ export async function uploadBandeauFrames(
   }
 }
 
+/**
+ * Envoie la vidéo source, conservée pour vérification humaine.
+ *
+ * `XMLHttpRequest` et non `fetch` : c'est la seule API qui expose une
+ * progression d'envoi sur tous les navigateurs mobiles visés. Pour un fichier
+ * de 20 Mo sur le réseau d'une cave, afficher un pourcentage réel plutôt qu'un
+ * indicateur qui tourne fait la différence entre patienter et fermer l'onglet.
+ *
+ * Rendue annulable pour que quitter l'écran n'entretienne pas un envoi devenu
+ * inutile.
+ */
+export function uploadBandeauVideo(
+  token: string,
+  file: File,
+  onProgress?: (ratio: number) => void,
+): { done: Promise<void>; abort: () => void } {
+  const xhr = new XMLHttpRequest();
+  const done = new Promise<void>((resolve, reject) => {
+    xhr.open('POST', `${BASE}/api/dossier/${token}/bandeau/video`);
+    xhr.setRequestHeader('content-type', file.type || 'video/mp4');
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded / e.total);
+    });
+    xhr.addEventListener('load', () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new ApiError(xhr.status, 'upload_failed', xhr.responseText)),
+    );
+    xhr.addEventListener('error', () =>
+      reject(new ApiError(0, 'network', 'Envoi interrompu.')),
+    );
+    xhr.addEventListener('abort', () =>
+      reject(new ApiError(0, 'aborted', 'Envoi annulé.')),
+    );
+
+    xhr.send(file);
+  });
+
+  return { done, abort: () => xhr.abort() };
+}
+
 export async function waitForBandeau(
   token: string,
   { timeoutMs = 30_000, intervalMs = 1_500 } = {},
