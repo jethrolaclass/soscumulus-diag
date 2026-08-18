@@ -2,12 +2,12 @@ import type { Env } from '../env';
 import { verifyImageUrl } from '../lib/signing';
 
 /**
- * Sert une photo à partir d'une URL signée à durée courte.
+ * Serve a photo from a short-lived signed URL.
  *
- * Consommée par l'API vision, jamais par un navigateur. Le bucket R2 reste
- * privé : c'est cette route, et sa signature, qui contrôlent l'accès. Le corps
- * est renvoyé tel quel depuis le flux R2 — aucune copie en mémoire, donc un
- * coût CPU négligeable quelle que soit la taille du fichier.
+ * Consumed by the vision API, never by a browser. The R2 bucket stays private:
+ * this route and its signature are what control access. The body is returned
+ * as-is from the R2 stream — no in-memory copy, so the CPU cost is negligible
+ * whatever the file size.
  */
 export async function handleImage(
   req: Request,
@@ -30,7 +30,7 @@ export async function handleImage(
     headers: {
       'content-type': object.httpMetadata?.contentType ?? 'image/jpeg',
       'cache-control': 'private, no-store',
-      // Ces images ne sont pas destinées à être indexées ni référencées.
+      // These images are not meant to be indexed or referenced.
       'x-robots-tag': 'noindex, nofollow',
     },
   });

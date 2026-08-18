@@ -1,51 +1,55 @@
 /**
- * Contrat partagé entre le front (web/) et l'API (api/).
- * Toute évolution ici est une évolution d'API : versionner si breaking.
+ * Contract shared by the front end (web/) and the API (api/).
+ * Any change here is an API change: version it if breaking.
  */
 
 export type PhotoSlot = 1 | 2 | 3;
 
 export const PHOTO_SLOTS: Record<PhotoSlot, { key: string; label: string }> = {
-  1: { key: 'plaque', label: "Étiquette signalétique" },
-  2: { key: 'ensemble', label: "Vue d'ensemble" },
-  3: { key: 'fuite', label: "Zone de fuite" },
+  1: { key: 'nameplate', label: 'Étiquette signalétique' },
+  2: { key: 'overview', label: "Vue d'ensemble" },
+  3: { key: 'leak', label: 'Zone de fuite' },
 };
 
 /* ------------------------------------------------------------------ */
-/* Sécurité — évalué avant toute autre chose                           */
+/* Safety — assessed before anything else                              */
 /* ------------------------------------------------------------------ */
 
-export type SafetyFlag = 'disjoncteur' | 'eau_electricite' | 'gaz' | 'aucun';
+export type SafetyFlag =
+  | 'breaker_tripped'
+  | 'water_near_electrics'
+  | 'gas_smell'
+  | 'none';
 
-/** Un seul de ces drapeaux suffit à basculer le dossier en arrêt sécurité. */
+/** Any one of these flags stops the journey and triggers a call back. */
 export const BLOCKING_SAFETY_FLAGS: readonly SafetyFlag[] = [
-  'disjoncteur',
-  'eau_electricite',
-  'gaz',
+  'breaker_tripped',
+  'water_near_electrics',
+  'gas_smell',
 ];
 
 /* ------------------------------------------------------------------ */
-/* Dossier                                                             */
+/* Case                                                                */
 /* ------------------------------------------------------------------ */
 
-export type DossierStatus =
-  | 'ouvert' // SMS envoyé, client n'a pas encore ouvert
-  | 'en_cours' // au moins une réponse enregistrée
-  | 'stop_securite' // danger déclaré, parcours interrompu, rappel immédiat
-  | 'soumis' // dossier complet, diagnostic généré
-  | 'expire';
+export type CaseStatus =
+  | 'open' // text sent, client has not opened the link yet
+  | 'in_progress' // at least one answer recorded
+  | 'safety_stop' // hazard declared, journey stopped, call back now
+  | 'submitted' // complete, diagnosis produced
+  | 'expired';
 
 export interface Answers {
   safety: SafetyFlag[];
-  /** Où l'eau est visible. */
-  ou?: 'dessus' | 'dessous' | 'groupe' | 'nulle';
-  /** Reste-t-il de l'eau chaude ? */
-  eauChaude?: 'oui' | 'non' | 'tiede';
-  /** Bandeau électronique présent ? */
-  ecran?: 'oui' | 'non';
-  statut?: 'proprio' | 'locataire' | 'gestionnaire';
-  acces?: 'facile' | 'placard' | 'trappe' | 'cave';
-  dispo?: 'matin' | 'midi' | 'aprem' | 'soir';
+  /** Where water is visible. */
+  waterLocation?: 'top' | 'bottom' | 'safety_group' | 'nowhere';
+  /** Is there any hot water left? */
+  hotWater?: 'yes' | 'no' | 'lukewarm';
+  /** Does the unit have an electronic control panel? */
+  hasPanel?: 'yes' | 'no';
+  occupancy?: 'owner' | 'tenant' | 'manager';
+  access?: 'easy' | 'cupboard' | 'hatch' | 'basement';
+  availability?: 'morning' | 'midday' | 'afternoon' | 'evening';
 }
 
 export interface PhotoState {
@@ -54,44 +58,44 @@ export interface PhotoState {
   skipped: boolean;
   attempts: number;
   analysis: PhotoAnalysis | null;
-  /** `pending` tant que Claude n'a pas rendu son verdict. */
+  /** Stays `pending` until the model returns its verdict. */
   analysisStatus: 'idle' | 'pending' | 'done' | 'failed';
 }
 
-export interface Dossier {
-  /** Référence lisible affichée au client (SC-0024). Jamais dans l'URL. */
+export interface DiagnosisCase {
+  /** Human-readable reference shown to the client (SC-0024). Never routed. */
   ref: string;
-  status: DossierStatus;
-  /** Pré-remplis depuis le formulaire du site — ne pas redemander. */
-  tel: string;
-  ville: string | null;
-  probleme: string | null;
+  status: CaseStatus;
+  /** Prefilled from the website form — never ask for these again. */
+  phone: string;
+  city: string | null;
+  reportedIssue: string | null;
   answers: Answers;
   photos: Record<PhotoSlot, PhotoState>;
-  /** Renseigné seulement si le client a déclaré un écran ou des voyants. */
-  bandeau: BandeauState;
-  diagnostic: Diagnostic | null;
+  /** Only filled in when the client declared a screen or indicator lights. */
+  panel: ControlPanelState;
+  diagnosis: Diagnosis | null;
   /**
-   * Numéro d'astreinte affiché sur l'écran d'arrêt sécurité. Servi par l'API
-   * plutôt que compilé dans le front : le changer ne doit pas demander un
-   * rebuild, et surtout pas laisser deux valeurs diverger.
+   * On-call number shown on the safety-stop screen. Served by the API rather
+   * than compiled into the front end: changing it must not require a rebuild,
+   * and above all must not leave two values to drift apart.
    */
-  urgenceTel: string;
+  emergencyPhone: string;
   createdAt: string;
   expiresAt: string;
 }
 
 /* ------------------------------------------------------------------ */
-/* Analyse d'une photo (sortie structurée Claude)                      */
+/* Photo analysis (structured model output)                            */
 /* ------------------------------------------------------------------ */
 
 export type PhotoProblem =
-  | 'flou'
-  | 'sombre'
-  | 'trop_loin'
-  | 'reflet'
-  | 'cadrage'
-  | 'hors_sujet';
+  | 'blurry'
+  | 'dark'
+  | 'too_far'
+  | 'glare'
+  | 'framing'
+  | 'off_subject';
 
 export interface Nameplate {
   readable: boolean;
@@ -102,46 +106,40 @@ export interface Nameplate {
   serial: string | null;
   manufactureDate: string | null;
   type:
-    | 'electrique_blinde'
-    | 'electrique_steatite'
-    | 'thermodynamique'
-    | 'gaz'
-    | 'inconnu';
+    | 'electric_immersion'
+    | 'electric_steatite'
+    | 'heat_pump'
+    | 'gas'
+    | 'unknown';
 }
 
 export interface Installation {
   mounting:
-    | 'mural_vertical'
-    | 'mural_horizontal'
-    | 'sur_socle'
-    | 'sous_evier'
-    | 'inconnu';
-  accessClearance: 'suffisant' | 'limite' | 'insuffisant' | 'inconnu';
-  groupeSecuriteVisible: boolean | null;
+    | 'wall_vertical'
+    | 'wall_horizontal'
+    | 'floor_standing'
+    | 'under_sink'
+    | 'unknown';
+  accessClearance: 'sufficient' | 'tight' | 'insufficient' | 'unknown';
+  safetyGroupVisible: boolean | null;
   corrosionVisible: boolean | null;
 }
 
 export interface Leak {
   present: boolean | null;
-  origin:
-    | 'groupe_securite'
-    | 'raccord'
-    | 'cuve'
-    | 'joint_trappe'
-    | 'indetermine';
-  severity: 'suintement' | 'goutte_a_goutte' | 'ecoulement' | 'aucune';
+  origin: 'safety_group' | 'fitting' | 'tank' | 'hatch_gasket' | 'undetermined';
+  severity: 'seeping' | 'dripping' | 'running' | 'none';
 }
 
 export interface PhotoAnalysis {
   slot: PhotoSlot;
-  /** Exploitable par un technicien, même imparfaite. */
+  /** Usable by a technician, even if imperfect. */
   usable: boolean;
-  quality: 'bonne' | 'moyenne' | 'insuffisante';
+  quality: 'good' | 'fair' | 'poor';
   problems: PhotoProblem[];
   /**
-   * Consigne actionnable en français, adressée au client, à la deuxième
-   * personne. `null` si la photo convient. C'est la valeur ajoutée du vLLM
-   * par rapport au contrôle de netteté local.
+   * Actionable instruction in French, addressed to the client. `null` when the
+   * photo is fine. This is what the model adds over the local sharpness check.
    */
   guidance: string | null;
   nameplate: Nameplate | null;
@@ -150,76 +148,71 @@ export interface PhotoAnalysis {
 }
 
 /* ------------------------------------------------------------------ */
-/* Bandeau de commande (appareils électroniques)                       */
+/* Control panel (electronic units)                                    */
 /* ------------------------------------------------------------------ */
 
 /**
- * Analyse d'une séquence d'images extraites de la vidéo du bandeau.
+ * Analysis of a sequence of frames extracted from the control-panel video.
  *
- * Distincte de `PhotoAnalysis` parce que la question posée est différente :
- * il ne s'agit pas de juger une image mais de lire une *séquence* — un code
- * de défaut clignotant ne se déduit pas d'une image isolée.
+ * Kept separate from `PhotoAnalysis` because the question differs: this is not
+ * about judging one image but about reading a *sequence* — a blinking fault
+ * code cannot be deduced from a single frame.
  */
-export interface BandeauAnalysis {
+export interface ControlPanelAnalysis {
   usable: boolean;
   guidance: string | null;
-  displayType:
-    | 'afficheur_numerique'
-    | 'voyants'
-    | 'ecran_lcd'
-    | 'aucun'
-    | 'indetermine';
-  /** Code de défaut lu tel quel, ex. « E3 ». null si rien de lisible. */
+  displayType: 'seven_segment' | 'indicator_lights' | 'lcd' | 'none' | 'unknown';
+  /** Fault code read verbatim, e.g. "E3". null when nothing is legible. */
   code: string | null;
-  /** Description de la séquence observée d'une image à l'autre. */
+  /** What changes from one frame to the next. */
   blinkPattern: string | null;
-  /** Voyants observés, ex. « voyant rouge fixe à gauche ». */
+  /** Indicators observed, e.g. "steady red light on the left". */
   indicators: string[];
-  /** Lecture technique du signal, si elle est possible sans le manuel. */
+  /** Technical reading of the signal, when possible without the manual. */
   interpretation: string | null;
   frameCount: number;
 }
 
-export interface BandeauState {
+export interface ControlPanelState {
   captured: boolean;
   frameCount: number;
   /**
-   * La vidéo source, conservée pour vérification humaine. Son envoi est
-   * différé et n'a jamais bloqué le parcours : `false` signifie donc
-   * « pas encore arrivée », pas « le client n'a rien filmé ».
+   * Source video, kept for human review. Its upload is deferred and never
+   * blocked the journey, so `false` means "not arrived yet", not "the client
+   * filmed nothing".
    */
   videoUploaded: boolean;
-  analysis: BandeauAnalysis | null;
+  analysis: ControlPanelAnalysis | null;
   analysisStatus: 'idle' | 'pending' | 'done' | 'failed';
 }
 
 /* ------------------------------------------------------------------ */
-/* Diagnostic de synthèse                                              */
+/* Final diagnosis                                                     */
 /* ------------------------------------------------------------------ */
 
-export interface Diagnostic {
+export interface Diagnosis {
   summary: string;
   likelyCause: string;
   recommendedAction: string;
-  urgency: 'immediate' | 'sous_24h' | 'sous_72h' | 'planifiable';
+  urgency: 'immediate' | 'within_24h' | 'within_72h' | 'schedulable';
   partsLikely: string[];
   estimatedDurationMin: number | null;
-  confidence: 'haute' | 'moyenne' | 'faible';
-  /** `true` si une visite reste indispensable malgré les photos. */
+  confidence: 'high' | 'medium' | 'low';
+  /** `true` when a site visit remains necessary despite the photos. */
   needsOnSite: boolean;
-  /** Notes techniques internes — n'apparaissent pas côté client. */
+  /** Internal notes — never shown to the client. */
   technicianNotes: string;
 }
 
 /* ------------------------------------------------------------------ */
-/* Payloads HTTP                                                       */
+/* HTTP payloads                                                       */
 /* ------------------------------------------------------------------ */
 
-/** POST /api/lead — appelé par Google Apps Script. */
+/** POST /api/lead — called by Google Apps Script. */
 export interface LeadRequest {
-  tel: string;
-  ville?: string;
-  probleme?: string;
+  phone: string;
+  city?: string;
+  reportedIssue?: string;
   source?: string;
 }
 
@@ -229,11 +222,11 @@ export interface LeadResponse {
   smsSent: boolean;
 }
 
-/** POST /api/dossier/:token/photo?slot=N — corps = JPEG brut. */
+/** POST /api/case/:token/photo?slot=N — body is a raw JPEG. */
 export interface PhotoUploadResponse {
   slot: PhotoSlot;
   accepted: true;
-  /** L'analyse est asynchrone : interroger /status. */
+  /** Analysis is asynchronous: poll the case to get the verdict. */
   analysisStatus: 'pending';
 }
 

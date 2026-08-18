@@ -1,62 +1,62 @@
--- Schéma D1. Appliquer :
+-- D1 schema. Apply with:
 --   wrangler d1 execute soscumulus-diag --file=src/schema.sql --local
 --   wrangler d1 execute soscumulus-diag --file=src/schema.sql --remote
 
-CREATE TABLE IF NOT EXISTS dossiers (
-  token       TEXT PRIMARY KEY,          -- opaque, aléatoire, jamais dérivé de ref
-  ref         TEXT NOT NULL UNIQUE,      -- SC-0024, affiché au client
-  status      TEXT NOT NULL,             -- ouvert | en_cours | stop_securite | soumis | expire
-  tel         TEXT NOT NULL,
-  ville       TEXT,
-  probleme    TEXT,
-  answers     TEXT NOT NULL DEFAULT '{}',
-  diagnostic  TEXT,
-  -- Bandeau de commande : 0 ou 1 capture par dossier, d'où des colonnes
-  -- plutôt qu'une table. `bandeau_frames` compte les images extraites.
-  bandeau_frames  INTEGER NOT NULL DEFAULT 0,
-  bandeau_analysis TEXT,
-  bandeau_status  TEXT NOT NULL DEFAULT 'idle',
-  bandeau_video_key TEXT,
-  created_at  TEXT NOT NULL,
-  updated_at  TEXT NOT NULL,
-  expires_at  TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS cases (
+  token              TEXT PRIMARY KEY,   -- opaque, random, never derived from ref
+  ref                TEXT NOT NULL UNIQUE, -- SC-0024, shown to the client
+  status             TEXT NOT NULL,      -- open | in_progress | safety_stop | submitted | expired
+  phone              TEXT NOT NULL,
+  city               TEXT,
+  reported_issue     TEXT,
+  answers            TEXT NOT NULL DEFAULT '{}',
+  diagnosis          TEXT,
+  -- Control panel: zero or one capture per case, hence columns rather than a
+  -- table. `panel_frames` counts the extracted frames.
+  panel_frames       INTEGER NOT NULL DEFAULT 0,
+  panel_analysis     TEXT,
+  panel_status       TEXT NOT NULL DEFAULT 'idle',
+  panel_video_key    TEXT,
+  created_at         TEXT NOT NULL,
+  updated_at         TEXT NOT NULL,
+  expires_at         TEXT NOT NULL
 );
 
--- Sert la purge RGPD : les photos du domicile d'un client n'ont pas à
--- survivre au dossier. Le cron balaie sur cet index.
-CREATE INDEX IF NOT EXISTS idx_dossiers_expires ON dossiers (expires_at);
-CREATE INDEX IF NOT EXISTS idx_dossiers_status ON dossiers (status);
+-- Drives the GDPR purge: photos of a client's home must not outlive the case.
+-- The cron sweeps on this index.
+CREATE INDEX IF NOT EXISTS idx_cases_expires ON cases (expires_at);
+CREATE INDEX IF NOT EXISTS idx_cases_status ON cases (status);
 
 CREATE TABLE IF NOT EXISTS photos (
-  dossier_token   TEXT NOT NULL,
-  slot            INTEGER NOT NULL,      -- 1 plaque | 2 ensemble | 3 fuite
+  case_token      TEXT NOT NULL,
+  slot            INTEGER NOT NULL,   -- 1 nameplate | 2 overview | 3 leak
   r2_key          TEXT,
   skipped         INTEGER NOT NULL DEFAULT 0,
   attempts        INTEGER NOT NULL DEFAULT 0,
   analysis        TEXT,
   analysis_status TEXT NOT NULL DEFAULT 'idle',  -- idle | pending | done | failed
   updated_at      TEXT NOT NULL,
-  PRIMARY KEY (dossier_token, slot),
-  FOREIGN KEY (dossier_token) REFERENCES dossiers (token) ON DELETE CASCADE
+  PRIMARY KEY (case_token, slot),
+  FOREIGN KEY (case_token) REFERENCES cases (token) ON DELETE CASCADE
 );
 
--- Journal d'audit. Utile au support ("le client dit qu'il a envoyé la photo")
--- et à la mesure du taux d'abandon par écran.
+-- Audit trail. Useful for support ("the client says they sent the photo") and
+-- for measuring drop-off per screen.
 CREATE TABLE IF NOT EXISTS events (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  dossier_token TEXT,
-  kind          TEXT NOT NULL,
-  detail        TEXT,
-  created_at    TEXT NOT NULL
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_token TEXT,
+  kind       TEXT NOT NULL,
+  detail     TEXT,
+  created_at TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_events_dossier ON events (dossier_token);
+CREATE INDEX IF NOT EXISTS idx_events_case ON events (case_token);
 
--- Séquence des références clients. Une table plutôt qu'un AUTOINCREMENT :
--- la référence doit rester stable et lisible même si un dossier est purgé.
+-- Client reference sequence. A table rather than AUTOINCREMENT: the reference
+-- must stay stable and readable even after a case is purged.
 CREATE TABLE IF NOT EXISTS counters (
   name  TEXT PRIMARY KEY,
   value INTEGER NOT NULL
 );
 
-INSERT OR IGNORE INTO counters (name, value) VALUES ('dossier_ref', 24);
+INSERT OR IGNORE INTO counters (name, value) VALUES ('case_ref', 24);

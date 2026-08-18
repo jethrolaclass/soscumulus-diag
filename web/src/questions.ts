@@ -1,18 +1,22 @@
-import type { PhotoSlot } from '../../shared/types';
-import type { Answers } from '../../shared/types';
+import type { Answers, PhotoSlot } from '../../shared/types';
 
 /**
- * Définition déclarative du questionnaire. Les écrans sont générés depuis ces
- * données : ajouter une question ne demande ni HTML ni gestionnaire d'événement.
+ * Declarative definition of the questionnaire. Screens are generated from this
+ * data: adding a question needs neither markup nor an event handler.
+ *
+ * Labels stay in French — they are read by the client. Values are English:
+ * they are identifiers, stored in the database and matched in code.
  */
 
 export interface Choice {
-  /** Valeur stockée dans `Answers`. Typée `string` : le rendu passe par le DOM,
-   *  qui ne transporte que des chaînes, et la validation se fait à l'écriture. */
+  /**
+   * Value stored in `Answers`. Typed as `string`: rendering goes through the
+   * DOM, which only carries strings, and validation happens on write.
+   */
   value: string;
   label: string;
   icon: string;
-  /** Teinte de l'état sélectionné — souligne un danger ou une absence de danger. */
+  /** Selected-state tint — marks a hazard or the absence of one. */
   tone?: 'danger' | 'safe';
 }
 
@@ -30,86 +34,86 @@ export const SAFETY_QUESTION: Question = {
   hint: 'Touchez tout ce qui vous concerne.',
   multi: true,
   choices: [
-    { value: 'disjoncteur', label: 'Le disjoncteur a sauté', icon: '⚡', tone: 'danger' },
+    { value: 'breaker_tripped', label: 'Le disjoncteur a sauté', icon: '⚡', tone: 'danger' },
     {
-      value: 'eau_electricite',
+      value: 'water_near_electrics',
       label: "De l'eau coule près de prises ou d'appareils électriques",
       icon: '💧',
       tone: 'danger',
     },
-    { value: 'gaz', label: 'Une odeur de gaz', icon: '🔥', tone: 'danger' },
-    { value: 'aucun', label: 'Aucun de ces cas', icon: '✓', tone: 'safe' },
+    { value: 'gas_smell', label: 'Une odeur de gaz', icon: '🔥', tone: 'danger' },
+    { value: 'none', label: 'Aucun de ces cas', icon: '✓', tone: 'safe' },
   ],
 };
 
 export const PROBLEM_QUESTIONS: Question[] = [
   {
-    key: 'ou',
+    key: 'waterLocation',
     title: "Où voyez-vous de l'eau ?",
     choices: [
-      { value: 'dessus', label: "Sur le dessus de l'appareil", icon: '⬆️' },
-      { value: 'dessous', label: 'En dessous', icon: '⬇️' },
+      { value: 'top', label: "Sur le dessus de l'appareil", icon: '⬆️' },
+      { value: 'bottom', label: 'En dessous', icon: '⬇️' },
       {
-        value: 'groupe',
+        value: 'safety_group',
         label: 'Sur le petit robinet du tuyau (groupe de sécurité)',
         icon: '🔧',
       },
-      { value: 'nulle', label: 'Nulle part', icon: '—' },
+      { value: 'nowhere', label: 'Nulle part', icon: '—' },
     ],
   },
   {
-    key: 'eauChaude',
+    key: 'hotWater',
     title: 'Avez-vous encore de l’eau chaude ?',
     choices: [
-      { value: 'oui', label: 'Oui', icon: '🔥' },
-      { value: 'non', label: 'Non', icon: '❄️' },
-      { value: 'tiede', label: 'Un peu, tiède', icon: '🌡️' },
+      { value: 'yes', label: 'Oui', icon: '🔥' },
+      { value: 'no', label: 'Non', icon: '❄️' },
+      { value: 'lukewarm', label: 'Un peu, tiède', icon: '🌡️' },
     ],
   },
   {
-    key: 'ecran',
+    key: 'hasPanel',
     title: 'Votre appareil a-t-il un écran ou des petites lumières ?',
     choices: [
-      { value: 'oui', label: 'Oui', icon: '💡' },
-      { value: 'non', label: 'Non', icon: '○' },
+      { value: 'yes', label: 'Oui', icon: '💡' },
+      { value: 'no', label: 'Non', icon: '○' },
     ],
   },
 ];
 
 export const CONTEXT_QUESTIONS: Question[] = [
   {
-    key: 'statut',
+    key: 'occupancy',
     title: 'Vous êtes…',
     choices: [
-      { value: 'proprio', label: 'Propriétaire', icon: '🏠' },
-      { value: 'locataire', label: 'Locataire', icon: '🔑' },
-      { value: 'gestionnaire', label: 'Je gère ce logement', icon: '🗂️' },
+      { value: 'owner', label: 'Propriétaire', icon: '🏠' },
+      { value: 'tenant', label: 'Locataire', icon: '🔑' },
+      { value: 'manager', label: 'Je gère ce logement', icon: '🗂️' },
     ],
   },
   {
-    key: 'acces',
+    key: 'access',
     title: 'Le chauffe-eau est…',
     choices: [
-      { value: 'facile', label: "Facile d'accès", icon: '🚪' },
-      { value: 'placard', label: 'Dans un placard ou un coffrage', icon: '🚪' },
-      { value: 'trappe', label: 'Faux plafond ou trappe', icon: '🪜' },
-      { value: 'cave', label: 'Cave ou sous-sol', icon: '🕳️' },
+      { value: 'easy', label: "Facile d'accès", icon: '🚪' },
+      { value: 'cupboard', label: 'Dans un placard ou un coffrage', icon: '🚪' },
+      { value: 'hatch', label: 'Faux plafond ou trappe', icon: '🪜' },
+      { value: 'basement', label: 'Cave ou sous-sol', icon: '🕳️' },
     ],
   },
   {
-    key: 'dispo',
+    key: 'availability',
     title: 'Vous êtes joignable plutôt…',
     choices: [
-      { value: 'matin', label: 'Le matin', icon: '🌅' },
-      { value: 'midi', label: 'Vers midi', icon: '☀️' },
-      { value: 'aprem', label: "L'après-midi", icon: '🌤️' },
-      { value: 'soir', label: 'Le soir', icon: '🌙' },
+      { value: 'morning', label: 'Le matin', icon: '🌅' },
+      { value: 'midday', label: 'Vers midi', icon: '☀️' },
+      { value: 'afternoon', label: "L'après-midi", icon: '🌤️' },
+      { value: 'evening', label: 'Le soir', icon: '🌙' },
     ],
   },
 ];
 
 /* ------------------------------------------------------------------ */
-/* Écrans photo                                                        */
+/* Photo screens                                                       */
 /* ------------------------------------------------------------------ */
 
 export interface PhotoScreen {
@@ -117,7 +121,7 @@ export interface PhotoScreen {
   eyebrow: string;
   title: string;
   lead: string;
-  /** Proposé sous le bouton — jamais une impasse pour le client. */
+  /** Offered under the button — never a dead end for the client. */
   skipLabel: string;
   skipConfirm: string;
 }
@@ -150,17 +154,18 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
   },
 };
 
-export const SCREEN_ORDER = [
-  's0',
-  's1',
-  's2',
-  's3',
-  's4',
-  's5',
-  's6',
-] as const;
+/** Conditional screen: shown only when the client declares a panel. */
+export const PANEL_SCREEN = {
+  eyebrow: 'Une dernière chose',
+  title: 'Filmez le bandeau 10 secondes',
+  lead: "Les lumières ou l'écran nous disent ce que dit l'appareil. Filmez-le <b>10 secondes sans bouger</b>.",
+  skipLabel: 'Je préfère passer cette étape',
+  skipConfirm: 'Noté — le technicien lira le bandeau sur place.',
+} as const;
 
-/** `s4b` et `s-stop` sont conditionnels : hors du déroulé nominal. */
+export const SCREEN_ORDER = ['s0', 's1', 's2', 's3', 's4', 's5', 's6'] as const;
+
+/** `s4b` and `s-stop` are conditional: outside the nominal flow. */
 export type ScreenId = (typeof SCREEN_ORDER)[number] | 's4b' | 's-stop';
 
 export const SCREEN_META: Record<ScreenId, { label: string; pct: number }> = {
@@ -174,12 +179,3 @@ export const SCREEN_META: Record<ScreenId, { label: string; pct: number }> = {
   s6: { label: 'Terminé', pct: 100 },
   's-stop': { label: 'Sécurité', pct: 8 },
 };
-
-/** Écran conditionnel : affiché seulement si le client déclare un écran ou des voyants. */
-export const BANDEAU_SCREEN = {
-  eyebrow: 'Une dernière chose',
-  title: 'Filmez le bandeau 10 secondes',
-  lead: "Les lumières ou l'écran nous disent ce que dit l'appareil. Filmez-le <b>10 secondes sans bouger</b>.",
-  skipLabel: 'Je préfère passer cette étape',
-  skipConfirm: 'Noté — le technicien lira le bandeau sur place.',
-} as const;

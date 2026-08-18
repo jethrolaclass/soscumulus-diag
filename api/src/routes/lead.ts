@@ -1,16 +1,16 @@
 import type { Env } from '../env';
 import type { LeadRequest, LeadResponse } from '../../../shared/types';
-import { createDossier, logEvent } from '../lib/db';
-import { newDossierToken } from '../lib/signing';
+import { createCase, logEvent } from '../lib/db';
+import { newCaseToken } from '../lib/signing';
 import { sendDiagSms } from '../lib/sms';
 import { badRequest, json, secretMatches, unauthorized } from '../lib/http';
 
 /**
- * Point d'entrée depuis le formulaire du site.
+ * Entry point from the website form.
  *
- * Le formulaire de soscumulus.fr poste déjà vers un web app Google Apps Script.
- * On ne remplace pas cette chaîne : le script conserve son Sheet et ses e-mails
- * et relaie simplement la soumission ici. Voir scripts/apps-script.gs.
+ * The soscumulus.fr form already posts to a Google Apps Script web app. That
+ * chain is preserved: the script keeps its Sheet and its emails and simply
+ * relays the submission here. See scripts/apps-script.gs.
  */
 export async function handleLead(
   req: Request,
@@ -22,30 +22,29 @@ export async function handleLead(
   }
 
   const body = (await req.json().catch(() => null)) as LeadRequest | null;
-  if (!body?.tel || typeof body.tel !== 'string') {
-    throw badRequest('Champ `tel` requis.');
+  if (!body?.phone || typeof body.phone !== 'string') {
+    throw badRequest('Champ `phone` requis.');
   }
 
-  const token = newDossierToken();
-  const dossier = await createDossier(env, token, {
-    tel: body.tel.trim(),
-    ville: body.ville?.trim() || undefined,
-    probleme: body.probleme?.trim() || undefined,
+  const token = newCaseToken();
+  const created = await createCase(env, token, {
+    phone: body.phone.trim(),
+    city: body.city?.trim() || undefined,
+    reportedIssue: body.reportedIssue?.trim() || undefined,
   });
 
   const url = `${env.PUBLIC_WEB_URL}/d/${token}`;
 
   let smsSent = false;
   try {
-    smsSent = await sendDiagSms(env, token, dossier.tel, url);
+    smsSent = await sendDiagSms(env, token, created.phone, url);
   } catch (err) {
-    // Le dossier existe et le lien est valide : un échec d'envoi ne doit pas
-    // faire perdre le lead. L'équipe peut renvoyer le lien à la main depuis le
-    // journal d'événements.
-    console.error('envoi SMS échoué', err);
-    ctx.waitUntil(logEvent(env, token, 'sms_a_renvoyer', url));
+    // The case exists and the link is valid: a send failure must not cost the
+    // lead. The team can resend the link by hand from the event log.
+    console.error('SMS send failed', err);
+    ctx.waitUntil(logEvent(env, token, 'sms_to_resend', url));
   }
 
-  const payload: LeadResponse = { ref: dossier.ref, url, smsSent };
+  const payload: LeadResponse = { ref: created.ref, url, smsSent };
   return json(payload, 201);
 }

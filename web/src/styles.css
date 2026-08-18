@@ -1,5 +1,5 @@
-/* Identité reprise du prototype : navy/orange, Syne pour les titres.
-   Cadre téléphone sur desktop, plein écran sur mobile. */
+/* Identity carried over from the prototype: navy/orange, Syne for headings.
+   Phone frame on desktop, full screen on mobile. */
 
 :root {
   --navy: #0f2d5c;
@@ -41,7 +41,7 @@ body {
   }
 }
 
-/* ---------- En-tête ---------- */
+/* ---------- Header ---------- */
 .top { background: var(--navy); color: #fff; padding: 16px 18px 14px; }
 .brand { display: flex; align-items: center; justify-content: space-between; }
 .brand .name { font-family: var(--syne); font-weight: 800; font-size: 17px; letter-spacing: .3px; }
@@ -69,7 +69,7 @@ body {
 .progress i { display: block; height: 100%; width: 0; background: var(--orange); transition: width .4s ease; }
 .step-label { font-size: 12px; color: #b9c6da; margin-top: 6px; display: flex; justify-content: space-between; }
 
-/* Envoi de la vidéo, en tâche de fond : informe sans jamais retenir. */
+/* Background video upload: informs without ever holding the client back. */
 .bgupload {
   background: #eef2f8; color: var(--navy); font-size: 13px; font-weight: 600;
   padding: 8px 18px; display: flex; align-items: center; gap: 10px;
@@ -77,7 +77,7 @@ body {
 .bgupload .bar { flex: 1; height: 3px; background: rgba(15, 45, 92, .15); border-radius: 3px; overflow: hidden; }
 .bgupload .bar i { display: block; height: 100%; background: var(--navy); transition: width .3s ease; }
 
-/* ---------- Corps ---------- */
+/* ---------- Body ---------- */
 .body { flex: 1; padding: 18px 18px 130px; overflow-y: auto; }
 .eyebrow {
   font-family: var(--syne); font-weight: 700; font-size: 11px;
@@ -90,14 +90,14 @@ p { margin: 0 0 12px; }
 .hint { font-size: 14px; color: var(--muted); }
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin: 12px 0; }
 
-/* Rappel des données déjà connues — évite de les redemander. */
+/* Echo of what we already know — avoids asking for it again. */
 .known { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
 .known span {
   font-size: 13px; background: #eef2f8; color: var(--navy);
   border-radius: 999px; padding: 5px 11px; font-weight: 600;
 }
 
-/* ---------- Choix ---------- */
+/* ---------- Choices ---------- */
 .choices { display: grid; gap: 10px; margin: 8px 0 14px; }
 .choice {
   display: flex; align-items: center; gap: 12px; width: 100%;
@@ -150,7 +150,7 @@ p { margin: 0 0 12px; }
 .btn.ghost { background: none; color: var(--navy); margin-top: 8px; padding: 10px; font-family: var(--dm); font-weight: 600; font-size: 15px; }
 .btn:focus-visible { outline: 3px solid rgba(15, 45, 92, .35); }
 
-/* ---------- Arrêt sécurité ---------- */
+/* ---------- Safety stop ---------- */
 .stop { background: var(--ko-bg); border: 1.5px solid #f0b8b8; border-radius: 16px; padding: 16px; }
 .stop h2 { color: var(--ko); }
 .stop ol { margin: 8px 0 0 18px; padding: 0; }

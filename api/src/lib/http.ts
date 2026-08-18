@@ -19,8 +19,8 @@ export const unauthorized = () =>
   new ApiHttpError(401, 'unauthorized', 'Authentification requise.');
 
 /**
- * Un dossier inconnu et un dossier expiré renvoient la même réponse :
- * distinguer les deux permettrait de tester l'existence d'un token.
+ * An unknown case and an expired one return the same response: telling them
+ * apart would let anyone probe for the existence of a token.
  */
 export const notFound = () =>
   new ApiHttpError(404, 'not_found', 'Dossier introuvable ou expiré.');
@@ -36,7 +36,7 @@ export function json(body: unknown, status = 200): Response {
 /* CORS                                                                */
 /* ------------------------------------------------------------------ */
 
-/** Origine unique et explicite — pas de `*` sur une API qui porte des tokens. */
+/** Single explicit origin — never `*` on an API that carries tokens. */
 function corsHeaders(env: Env): Record<string, string> {
   return {
     'access-control-allow-origin': env.PUBLIC_WEB_URL,
@@ -70,11 +70,11 @@ export function parseSlot(raw: string | null): PhotoSlot {
 }
 
 /**
- * Comparaison à temps constant d'un secret partagé.
+ * Constant-time comparison of a shared secret.
  *
- * Un `expected` absent — secret jamais posé sur le Worker — refuse au lieu de
- * lever : sans cette garde, une configuration incomplète répondait 500 au lieu
- * de 401, ce qui envoie chercher un bug là où il n'y a qu'un secret manquant.
+ * A missing `expected` — secret never set on the Worker — denies rather than
+ * throwing: without this guard an incomplete configuration answered 500 rather
+ * than 401, sending you hunting for a bug where only a secret was missing.
  */
 export function secretMatches(
   provided: string | null,

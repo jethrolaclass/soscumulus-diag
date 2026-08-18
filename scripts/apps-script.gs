@@ -16,17 +16,17 @@
  *   3. Project Settings → Script Properties, add:
  *        API_URL       https://diag-api.soscumulus.fr
  *        LEAD_SECRET   same value as the Worker secret (see api/.dev.vars)
- *        FICHE_SECRET  same value as the Worker secret
+ *        REPORT_SECRET  same value as the Worker secret
  *        TEMPLATE_ID   id of the Google Docs template
- *        DOSSIER_ID    id of the Drive folder holding intervention files
- *        ARCHIVE_ANS   2
+ *        ARCHIVE_FOLDER_ID    id of the Drive folder holding intervention files
+ *        ARCHIVE_YEARS   2
  *   4. Deploy → New deployment → type "Web app".
  *        - Execute as: Me
  *        - Who has access: Anyone
  *      → Authorize the requested Google scopes, copy the "/exec" URL.
  *   5. Use that URL in the website (SITE.formEndpoint) AND in the Worker's
  *      FICHE_WEBHOOK_URL variable (api/wrangler.toml).
- *   6. Triggers → Add trigger → purgerArchives → Time-driven → Month timer.
+ *   6. Triggers → Add trigger → purgeArchives → Time-driven → Month timer.
  *      Without it, the 2-year retention promised to the client is not kept.
  *
  * Storage split: R2 is a seven-day working buffer for upload, analysis and
@@ -95,7 +95,7 @@ function handleFormSubmission(e) {
   // Open the diagnosis file first: its link is worth having in both the Sheet
   // row and the email. A failure here must never cost us the lead, so it is
   // caught and the rest of the flow carries on unchanged.
-  var diag = ouvrirDiagnostic(tel, ville, probleme);
+  var diag = openDiagnosisCase(tel, ville, probleme);
 
   // 1) Write to the Sheet (first tab) — column F = default status
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
@@ -146,7 +146,7 @@ function handleFormSubmission(e) {
  * Returns an object rather than throwing: the lead is already worth handling
  * whether or not the remote diagnosis could be opened.
  */
-function ouvrirDiagnostic(tel, ville, probleme) {
+function openDiagnosisCase(tel, ville, probleme) {
   var apiUrl = P.getProperty("API_URL");
   var secret = P.getProperty("LEAD_SECRET");
   if (!apiUrl || !secret) {
@@ -184,7 +184,7 @@ function ouvrirDiagnostic(tel, ville, probleme) {
 /* ------------------------------------------------------------------ */
 
 function handleApiCallback(e, secret) {
-  if (secret !== P.getProperty("FICHE_SECRET")) {
+  if (secret !== P.getProperty("REPORT_SECRET")) {
     return json({ ok: false, error: "unauthorized" });
   }
 
@@ -195,8 +195,8 @@ function handleApiCallback(e, secret) {
     return json({ ok: false, error: "invalid_json" });
   }
 
-  if (body.type === "fiche") return json(genererFiche(body));
-  if (body.type === "alerte_securite") return json(alerteSecurite(body));
+  if (body.type === "report") return json(buildReport(body));
+  if (body.type === "safety_alert") return json(sendSafetyAlert(body));
   return json({ ok: false, error: "unknown_type" });
 }
 
@@ -206,28 +206,28 @@ function handleApiCallback(e, secret) {
  * One sub-folder per intervention: the technician opens a single place and
  * finds the file, the three photos, the control-panel frames and the video.
  */
-function genererFiche(d) {
-  var modele = DriveApp.getFileById(P.getProperty("TEMPLATE_ID"));
-  var racine = DriveApp.getFolderById(P.getProperty("DOSSIER_ID"));
+function buildReport(d) {
+  var template = DriveApp.getFileById(P.getProperty("TEMPLATE_ID"));
+  var archiveRoot = DriveApp.getFolderById(P.getProperty("ARCHIVE_FOLDER_ID"));
 
-  var dossier = racine.createFolder(
-    d.ref + " — " + (d.ville || "sans commune") + " — " +
+  var folder = archiveRoot.createFolder(
+    d.ref + " — " + (d.city || "sans commune") + " — " +
       Utilities.formatDate(new Date(), "Europe/Paris", "yyyy-MM-dd")
   );
-  var copie = modele.makeCopy("Fiche " + d.ref, dossier);
+  var docCopy = template.makeCopy("Fiche " + d.ref, folder);
 
-  var doc = DocumentApp.openById(copie.getId());
-  var corps = doc.getBody();
-  var diag = d.diagnostic || {};
-  var plaque = plaqueDe_(d);
+  var doc = DocumentApp.openById(docCopy.getId());
+  var body = doc.getBody();
+  var diag = d.diagnosis || {};
+  var nameplate = nameplateOf_(d);
 
-  var champs = {
+  var fields = {
     "{{REF}}": d.ref || "",
-    "{{TEL}}": d.tel || "",
-    "{{VILLE}}": d.ville || "",
-    "{{PROBLEME}}": d.probleme || "",
+    "{{TEL}}": d.phone || "",
+    "{{VILLE}}": d.city || "",
+    "{{PROBLEME}}": d.reportedIssue || "",
     "{{DATE}}": Utilities.formatDate(new Date(), "Europe/Paris", "dd/MM/yyyy HH:mm"),
-    "{{APPAREIL}}": [plaque.brand, plaque.model, plaque.capacityLiters ? plaque.capacityLiters + " L" : ""]
+    "{{APPAREIL}}": [nameplate.brand, nameplate.model, nameplate.capacityLiters ? nameplate.capacityLiters + " L" : ""]
       .filter(String).join(" · ") || "Non identifié",
     "{{SYNTHESE}}": diag.summary || "",
     "{{CAUSE}}": diag.likelyCause || "",
@@ -238,26 +238,26 @@ function genererFiche(d) {
     "{{CONFIANCE}}": diag.confidence || "",
     "{{VISITE}}": diag.needsOnSite ? "Oui" : "Non",
     "{{NOTES}}": diag.technicianNotes || "",
-    "{{BANDEAU}}": bandeauTexte_(d.bandeau),
+    "{{BANDEAU}}": panelSummary_(d.panel),
     // A Doc cannot embed a video, so this stays a link. It expires with the
     // file, at seven days — the Doc remains readable without it afterwards.
-    "{{VIDEO}}": d.bandeauVideoUrl || "Aucune vidéo",
+    "{{VIDEO}}": d.panelVideoUrl || "Aucune vidéo",
     "{{ACCES}}": (d.answers && d.answers.acces) || "",
     "{{DISPO}}": (d.answers && d.answers.dispo) || "",
   };
-  for (var cle in champs) corps.replaceText(escapeRegex_(cle), champs[cle]);
+  for (var key in fields) body.replaceText(escapeRegex_(key), fields[key]);
 
   // Photos are embedded, not linked: the signed URLs expire with the file and
   // the Doc has to stay readable long after.
-  var ancre = corps.findText("{{PHOTOS}}");
-  if (ancre) {
-    var para = ancre.getElement().getParent().asParagraph();
+  var anchor = body.findText("{{PHOTOS}}");
+  if (anchor) {
+    var para = anchor.getElement().getParent().asParagraph();
     para.clear();
     (d.photos || []).forEach(function (p) {
       if (!p.url) return;
       try {
         var blob = UrlFetchApp.fetch(p.url, { muteHttpExceptions: true }).getBlob();
-        var img = corps.insertImage(corps.getChildIndex(para) + 1, blob);
+        var img = body.insertImage(body.getChildIndex(para) + 1, blob);
         img.setWidth(280);
         img.setHeight((img.getHeight() / img.getWidth()) * 280);
       } catch (err) {
@@ -267,11 +267,11 @@ function genererFiche(d) {
   }
 
   doc.saveAndClose();
-  var pdf = dossier.createFile(copie.getAs("application/pdf")).setName("Fiche " + d.ref + ".pdf");
+  var pdf = folder.createFile(docCopy.getAs("application/pdf")).setName("Fiche " + d.ref + ".pdf");
 
-  archiver_(dossier, d);
+  archiveMedia_(folder, d);
 
-  return { ok: true, doc: copie.getUrl(), pdf: pdf.getUrl(), dossier: dossier.getUrl() };
+  return { ok: true, doc: docCopy.getUrl(), pdf: pdf.getUrl(), folder: folder.getUrl() };
 }
 
 /**
@@ -280,31 +280,31 @@ function genererFiche(d) {
  * Each file is isolated in its own try: a missing photo must not stop the
  * others, nor fail the file, which is already written by this point.
  */
-function archiver_(dossier, d) {
-  var aRecopier = [];
+function archiveMedia_(folder, d) {
+  var toCopy = [];
 
   (d.photos || []).forEach(function (p) {
-    if (p.url) aRecopier.push({ url: p.url, nom: "photo-" + p.slot + ".jpg" });
+    if (p.url) toCopy.push({ url: p.url, name: "photo-" + p.slot + ".jpg" });
   });
-  (d.bandeauFrames || []).forEach(function (f) {
-    aRecopier.push({ url: f.url, nom: "bandeau-" + String(f.index + 1) + ".jpg" });
+  (d.panelFrames || []).forEach(function (f) {
+    toCopy.push({ url: f.url, name: "bandeau-" + String(f.index + 1) + ".jpg" });
   });
-  if (d.bandeauVideoUrl) {
-    aRecopier.push({ url: d.bandeauVideoUrl, nom: "bandeau-source.mp4" });
+  if (d.panelVideoUrl) {
+    toCopy.push({ url: d.panelVideoUrl, name: "bandeau-source.mp4" });
   }
 
-  aRecopier.forEach(function (item) {
+  toCopy.forEach(function (item) {
     try {
       var res = UrlFetchApp.fetch(item.url, { muteHttpExceptions: true });
       if (res.getResponseCode() !== 200) {
-        console.error("archivage " + item.nom + " : HTTP " + res.getResponseCode());
+        console.error("archivage " + item.name + " : HTTP " + res.getResponseCode());
         return;
       }
-      dossier.createFile(res.getBlob().setName(item.nom));
+      folder.createFile(res.getBlob().setName(item.name));
     } catch (err) {
       // Most likely cause: a video beyond the 50 MB UrlFetchApp accepts. The
       // Worker caps uploads below that, but the guard stays useful.
-      console.error("archivage " + item.nom + " impossible : " + err);
+      console.error("archivage " + item.name + " impossible : " + err);
     }
   });
 }
@@ -314,25 +314,26 @@ function archiver_(dossier, d) {
  * breaker, gas smell. The client's journey stopped there and someone must
  * call back now — this is both a duty of care and the hottest lead we get.
  */
-function alerteSecurite(d) {
-  var libelles = {
-    disjoncteur: "Le disjoncteur a sauté",
-    eau_electricite: "De l'eau coule près de prises ou d'appareils électriques",
-    gaz: "Odeur de gaz",
+function sendSafetyAlert(d) {
+  // Keys match the SafetyFlag values in shared/types.ts.
+  var labels = {
+    breaker_tripped: "Le disjoncteur a sauté",
+    water_near_electrics: "De l'eau coule près de prises ou d'appareils électriques",
+    gas_smell: "Odeur de gaz",
   };
-  var motifs = (d.flags || []).map(function (f) { return libelles[f] || f; });
+  var reasons = (d.flags || []).map(function (f) { return labels[f] || f; });
 
   MailApp.sendEmail({
     to: RECIPIENTS.join(","),
-    subject: "🚨 DANGER DÉCLARÉ — rappeler immédiatement " + (d.tel || "") + " (" + d.ref + ")",
+    subject: "🚨 DANGER DÉCLARÉ — rappeler immédiatement " + (d.phone || "") + " (" + d.ref + ")",
     body:
       "Un client a déclaré une situation dangereuse pendant son diagnostic.\n\n" +
       "Dossier : " + d.ref + "\n" +
-      "Téléphone : " + d.tel + "\n" +
-      "Commune : " + (d.ville || "non renseignée") + "\n" +
-      "Motif : " + motifs.join(" · ") + "\n\n" +
+      "Téléphone : " + d.phone + "\n" +
+      "Commune : " + (d.city || "non renseignée") + "\n" +
+      "Motif : " + reasons.join(" · ") + "\n\n" +
       "Le parcours a été interrompu et le client attend un appel.\n",
-    htmlBody: buildAlertHtml(d, motifs),
+    htmlBody: buildSafetyAlertHtml(d, reasons),
     name: "SOS Cumulus — Alerte sécurité",
   });
   return { ok: true };
@@ -352,25 +353,25 @@ function alerteSecurite(d) {
  * recoverable for thirty days, which covers an accidental purge, then removes
  * it on its own.
  */
-function purgerArchives() {
-  var ans = Number(P.getProperty("ARCHIVE_ANS") || "2");
-  var limite = new Date();
-  limite.setFullYear(limite.getFullYear() - ans);
+function purgeArchives() {
+  var years = Number(P.getProperty("ARCHIVE_YEARS") || "2");
+  var cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
 
-  var racine = DriveApp.getFolderById(P.getProperty("DOSSIER_ID"));
-  var dossiers = racine.getFolders();
-  var supprimes = 0;
+  var archiveRoot = DriveApp.getFolderById(P.getProperty("ARCHIVE_FOLDER_ID"));
+  var folders = archiveRoot.getFolders();
+  var removed = 0;
 
-  while (dossiers.hasNext()) {
-    var d = dossiers.next();
-    if (d.getDateCreated() < limite) {
+  while (folders.hasNext()) {
+    var d = folders.next();
+    if (d.getDateCreated() < cutoff) {
       d.setTrashed(true);
-      supprimes++;
+      removed++;
     }
   }
 
-  if (supprimes > 0) {
-    console.log("purge archive : " + supprimes + " dossier(s) au-delà de " + ans + " ans");
+  if (removed > 0) {
+    console.log("archive purge: " + removed + " folder(s) past " + years + " years");
   }
 }
 
@@ -387,13 +388,13 @@ function escapeRegex_(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function plaqueDe_(d) {
+function nameplateOf_(d) {
   var p1 = (d.photos || []).filter(function (p) { return p.slot === 1; })[0];
   return (p1 && p1.analysis && p1.analysis.nameplate) || {};
 }
 
 /** Readable rendering of the control-panel analysis for the printed file. */
-function bandeauTexte_(b) {
+function panelSummary_(b) {
   if (!b) return "Non renseigné";
   var lignes = [];
   if (b.code) lignes.push("Code affiché : " + b.code);
@@ -452,10 +453,10 @@ function emailShell_(bannerText, inner) {
  * Table-based layout + inline styles (Gmail/Outlook/Apple Mail compatible).
  */
 function buildEmailHtml(d) {
-  var telDigits = String(d.tel || "").replace(/[^0-9+]/g, "");
+  var telDigits = String(d.phone || "").replace(/[^0-9+]/g, "");
   var telCell = telDigits
-    ? '<a href="tel:' + esc(telDigits) + '" style="color:' + ORANGE + ';text-decoration:none;font-weight:700;">' + esc(d.tel) + '</a>'
-    : esc(d.tel);
+    ? '<a href="tel:' + esc(telDigits) + '" style="color:' + ORANGE + ';text-decoration:none;font-weight:700;">' + esc(d.phone) + '</a>'
+    : esc(d.phone);
 
   var inner =
     '<tr><td style="background:' + ORANGE + ';padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;">' +
@@ -465,8 +466,8 @@ function buildEmailHtml(d) {
       '<p style="margin:0 0 18px;font-size:15px;color:' + INK + ';line-height:1.5;">Un client vient de demander à être rappelé via le site.<br>Voici ses informations&nbsp;:</p>' +
       '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
         emailRow_("Téléphone", telCell, true) +
-        emailRow_("Type de problème", esc(d.probleme)) +
-        emailRow_("Ville", esc(d.ville)) +
+        emailRow_("Type de problème", esc(d.reportedIssue)) +
+        emailRow_("Ville", esc(d.city)) +
         emailRow_("Reçue le", '<span style="font-size:14px;color:' + GRAY + ';font-weight:500;">' + esc(d.receivedAt) + '</span>') +
       '</table>' +
     '</td></tr>';
@@ -505,9 +506,9 @@ function buildEmailHtml(d) {
 }
 
 /** Hazard alert: same shell, red band, and the reasons spelled out. */
-function buildAlertHtml(d, motifs) {
-  var telDigits = String(d.tel || "").replace(/[^0-9+]/g, "");
-  var liste = motifs.map(function (m) {
+function buildSafetyAlertHtml(d, reasons) {
+  var telDigits = String(d.phone || "").replace(/[^0-9+]/g, "");
+  var items = reasons.map(function (m) {
     return '<li style="margin:0 0 6px;font-size:15px;color:' + INK + ';">' + esc(m) + '</li>';
   }).join("");
 
@@ -517,12 +518,12 @@ function buildAlertHtml(d, motifs) {
     '</td></tr>' +
     '<tr><td style="padding:28px 32px 8px;">' +
       '<p style="margin:0 0 14px;font-size:15px;color:' + INK + ';line-height:1.5;">Un client a déclaré une situation dangereuse pendant son diagnostic. Son parcours a été interrompu et il attend un appel.</p>' +
-      '<ul style="margin:0 0 18px;padding-left:20px;">' + liste + '</ul>' +
+      '<ul style="margin:0 0 18px;padding-left:20px;">' + items + '</ul>' +
       '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
         emailRow_("Téléphone", telDigits
-          ? '<a href="tel:' + esc(telDigits) + '" style="color:' + RED + ';text-decoration:none;font-weight:700;">' + esc(d.tel) + '</a>'
-          : esc(d.tel), false) +
-        emailRow_("Commune", esc(d.ville || "non renseignée")) +
+          ? '<a href="tel:' + esc(telDigits) + '" style="color:' + RED + ';text-decoration:none;font-weight:700;">' + esc(d.phone) + '</a>'
+          : esc(d.phone), false) +
+        emailRow_("Commune", esc(d.city || "non renseignée")) +
         emailRow_("Dossier", esc(d.ref)) +
       '</table>' +
     '</td></tr>' +

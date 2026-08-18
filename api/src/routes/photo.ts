@@ -1,19 +1,13 @@
 import type { Env } from '../env';
 import type { PhotoSlot } from '../../../shared/types';
 import { analyzePhoto } from '../lib/claude';
-import {
-  getDossier,
-  logEvent,
-  markSkipped,
-  recordUpload,
-  saveAnalysis,
-} from '../lib/db';
+import { getCase, logEvent, markSkipped, recordUpload, saveAnalysis } from '../lib/db';
 import { signedImageUrl } from '../lib/signing';
 import { badRequest, json, notFound, parseSlot } from '../lib/http';
 
 /**
- * Plafond de sécurité. Le front normalise à ~300 Ko ; au-delà de 8 Mo il s'agit
- * soit d'un contournement du front, soit d'un bug de normalisation.
+ * Safety cap. The front end normalises to ~300 KB; beyond 8 MB this is either
+ * a bypass of the front end or a normalisation bug.
  */
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
@@ -25,8 +19,8 @@ export async function handlePhotoUpload(
   slotRaw: string | null,
 ): Promise<Response> {
   const slot = parseSlot(slotRaw);
-  const dossier = await getDossier(env, token);
-  if (!dossier) throw notFound();
+  const found = await getCase(env, token);
+  if (!found) throw notFound();
 
   const contentType = req.headers.get('content-type') ?? '';
   if (!contentType.startsWith('image/jpeg')) {
@@ -39,24 +33,24 @@ export async function handlePhotoUpload(
   }
   if (!req.body) throw badRequest('Corps de requête vide.');
 
-  // Le flux part directement vers R2. Rien n'est mis en mémoire ni encodé :
-  // c'est ce qui garde l'empreinte CPU du Worker sous le quota du plan gratuit.
+  // The stream goes straight to R2. Nothing is buffered or encoded: that is
+  // what keeps the Worker's CPU footprint under the free plan's budget.
   const key = `${token}/${slot}-${Date.now()}.jpg`;
   await env.PHOTOS.put(key, req.body, {
     httpMetadata: { contentType: 'image/jpeg' },
   });
 
   const attempt = await recordUpload(env, token, slot, key);
-  await logEvent(env, token, 'photo_recue', `slot=${slot} tentative=${attempt}`);
+  await logEvent(env, token, 'photo_received', `slot=${slot} attempt=${attempt}`);
 
-  // L'analyse se poursuit après la réponse : le client reçoit immédiatement un
-  // accusé et interroge /api/dossier/:token pour le verdict. Cela évite de
-  // maintenir la connexion ouverte pendant l'appel vision, et permet d'afficher
-  // l'aperçu de la photo sans attendre.
+  // Analysis continues after the response: the client gets an immediate
+  // acknowledgement and polls the case for the verdict. This avoids holding
+  // the connection open during the vision call, and lets the photo preview
+  // appear without waiting.
   ctx.waitUntil(
     analyzeInBackground(env, token, slot, key, attempt, {
-      ville: dossier.ville,
-      probleme: dossier.probleme,
+      city: found.city,
+      reportedIssue: found.reportedIssue,
     }),
   );
 
@@ -69,25 +63,25 @@ async function analyzeInBackground(
   slot: PhotoSlot,
   key: string,
   attempt: number,
-  ctx: { ville: string | null; probleme: string | null },
+  context: { city: string | null; reportedIssue: string | null },
 ): Promise<void> {
   try {
     const url = await signedImageUrl(env.SIGNING_KEY, env.PUBLIC_API_URL, key);
-    const analysis = await analyzePhoto(env, slot, url, { ...ctx, attempt });
+    const analysis = await analyzePhoto(env, slot, url, { ...context, attempt });
     await saveAnalysis(env, token, slot, analysis);
     await logEvent(
       env,
       token,
-      'photo_analysee',
+      'photo_analyzed',
       `slot=${slot} usable=${analysis.usable} quality=${analysis.quality}`,
     );
   } catch (err) {
-    // Une analyse en échec ne doit jamais bloquer le client : la photo est
-    // stockée et le technicien la verra. Le front traite `failed` comme une
-    // acceptation silencieuse.
-    console.error(`analyse slot ${slot} échouée`, err);
+    // A failed analysis must never block the client: the photo is stored and
+    // the technician will see it. The front end treats `failed` as a silent
+    // acceptance.
+    console.error(`photo analysis failed for slot ${slot}`, err);
     await saveAnalysis(env, token, slot, null);
-    await logEvent(env, token, 'photo_analyse_echec', `slot=${slot}`);
+    await logEvent(env, token, 'photo_analysis_failed', `slot=${slot}`);
   }
 }
 
@@ -97,10 +91,10 @@ export async function handleSkipPhoto(
   slotRaw: string,
 ): Promise<Response> {
   const slot = parseSlot(slotRaw);
-  const dossier = await getDossier(env, token);
-  if (!dossier) throw notFound();
+  const found = await getCase(env, token);
+  if (!found) throw notFound();
 
   await markSkipped(env, token, slot);
-  await logEvent(env, token, 'photo_ignoree', `slot=${slot}`);
+  await logEvent(env, token, 'photo_skipped', `slot=${slot}`);
   return json({ slot, skipped: true });
 }

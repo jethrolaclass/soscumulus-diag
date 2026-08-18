@@ -1,49 +1,52 @@
 /**
- * Appels vision. Point d'entrée unique vers le modèle : si le mécanisme
- * d'authentification ou le fournisseur change un jour, c'est le seul fichier
- * à toucher.
+ * Vision calls. Single point of contact with the model: if the authentication
+ * mechanism or the provider ever changes, this is the only file to touch.
  *
- * Deux contraintes d'architecture pilotent ce module :
+ * Two architectural constraints drive this module:
  *
- *  1. Aucun octet d'image ne transite par le Worker. On passe une URL R2
- *     présignée à durée courte et l'API va chercher l'image elle-même.
- *     Encoder 300 Ko en base64 dans un Worker dépasserait les 10 ms de CPU
- *     du plan gratuit ; signer une URL en coûte moins de un.
+ *  1. No image byte transits the Worker. We pass a short-lived signed R2 URL
+ *     and the API fetches the image itself. Base64-encoding 300 KB inside a
+ *     Worker would blow the free plan's 10 ms CPU budget; signing a URL costs
+ *     less than one.
  *
- *  2. Sortie structurée, pas de boucle agentique. La tâche est « regarde
- *     cette photo, rends ce JSON » : `output_config.format` garantit un
- *     résultat parseable par construction, en un aller-retour.
+ *  2. Structured output, no agent loop. The task is "look at this photo,
+ *     return this JSON": `output_config.format` guarantees a parseable result
+ *     in a single round trip.
+ *
+ * Prompts stay in French: the model must return client-facing guidance in
+ * French, and the domain vocabulary (étiquette signalétique, groupe de
+ * sécurité, bandeau) has no crisp English equivalent for this trade.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
 import type {
-  BandeauAnalysis,
-  Diagnostic,
+  ControlPanelAnalysis,
+  Diagnosis,
   PhotoAnalysis,
   PhotoSlot,
 } from '../../../shared/types';
 import type { Env } from '../env';
 import {
   PHOTO_ANALYSIS_SCHEMAS,
-  DIAGNOSTIC_SCHEMA,
-  BANDEAU_SCHEMA,
+  DIAGNOSIS_SCHEMA,
+  CONTROL_PANEL_SCHEMA,
 } from './schemas';
 
 const MODEL = 'claude-opus-5';
 
 /**
- * Les classificateurs d'Opus 5 peuvent décliner une requête (HTTP 200,
- * `stop_reason: "refusal"`). Sur des photos de chaufferie c'est improbable,
- * mais un faux positif ne doit pas casser un diagnostic client : le repli
- * serveur re-sert la requête sur un autre modèle dans le même appel.
+ * Opus 5 classifiers may decline a request (HTTP 200, `stop_reason: refusal`).
+ * Unlikely on boiler-room photos, but a false positive must not break a client
+ * diagnosis: the server-side fallback re-serves the request on another model
+ * within the same call.
  */
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
 /**
- * `fallbacks` est accepté par l'API mais pas encore décrit par les types du SDK
- * (0.72.x). On l'injecte par un objet volontairement élargi plutôt qu'en
- * castant l'appel entier : le reste des paramètres continue d'être vérifié par
- * le compilateur. À supprimer dès que le SDK expose le champ.
+ * `fallbacks` is accepted by the API but not yet described by the SDK types
+ * (0.72.x). Injected through a deliberately widened object rather than casting
+ * the whole call, so the remaining parameters stay type-checked. Remove once
+ * the SDK exposes the field.
  */
 const REFUSAL_FALLBACK = {
   betas: [FALLBACK_BETA],
@@ -51,10 +54,7 @@ const REFUSAL_FALLBACK = {
 } as unknown as { betas: string[] };
 
 function client(env: Env): Anthropic {
-  return new Anthropic({
-    apiKey: env.ANTHROPIC_API_KEY,
-    maxRetries: 2,
-  });
+  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 2 });
 }
 
 /* ------------------------------------------------------------------ */
@@ -62,10 +62,10 @@ function client(env: Env): Anthropic {
 /* ------------------------------------------------------------------ */
 
 /**
- * Préambule commun, identique à chaque appel — c'est lui qui porte le point
- * de cache. Le cache ne s'amorce qu'au-delà de 512 tokens de préfixe sur
- * Opus 5 : ne pas raccourcir ce bloc sans vérifier `cache_read_input_tokens`
- * dans les logs, sous peine de payer le plein tarif à chaque photo.
+ * Shared preamble, identical on every call — this is what carries the cache
+ * breakpoint. Caching only kicks in above a 512-token prefix on Opus 5: do not
+ * shorten this block without checking `cache_read_input_tokens` in the logs,
+ * or every photo pays full price.
  */
 const PREAMBLE = `Tu assistes SOS Cumulus, une entreprise de dépannage de chauffe-eau en région lyonnaise. Un client vient de photographier son appareil avec son téléphone, depuis chez lui, souvent dans un local mal éclairé — cave, placard, sous-sol, faux plafond.
 
@@ -88,7 +88,7 @@ Si l'étiquette est présente mais qu'aucun caractère n'est lisible, nameplate.
 
   2: `Photo demandée : le chauffe-eau en entier, dans son environnement.
 
-Évalue le dégagement disponible autour de l'appareil : un technicien doit pouvoir déposer le capot, accéder au groupe de sécurité et, si besoin, sortir la cuve. « insuffisant » signifie qu'une dépose sera impossible sans démonter autre chose — c'est une information qui change le chiffrage et la durée de l'intervention, signale-la sans hésiter.
+Évalue le dégagement disponible autour de l'appareil : un technicien doit pouvoir déposer le capot, accéder au groupe de sécurité et, si besoin, sortir la cuve. « insufficient » signifie qu'une dépose sera impossible sans démonter autre chose — c'est une information qui change le chiffrage et la durée de l'intervention, signale-la sans hésiter.
 
 Le groupe de sécurité est la petite pièce en laiton sur l'arrivée d'eau froide, généralement munie d'une molette et d'un tuyau d'évacuation.`,
 
@@ -99,14 +99,34 @@ Cherche l'origine de l'écoulement, pas seulement sa présence. Une eau qui s'é
 Distingue une trace ancienne, sèche ou calcaire, d'un écoulement actif. Si le client déclare ne rien voir couler et que la photo le confirme, leak.present vaut false.`,
 };
 
+const CONTROL_PANEL_PROMPT = `Tu reçois plusieurs images du bandeau de commande d'un chauffe-eau, extraites d'une même vidéo de dix secondes et espacées régulièrement dans le temps. Elles sont fournies dans l'ordre chronologique.
+
+Ta question n'est pas « que montre cette image » mais « qu'est-ce qui change d'une image à l'autre ». Les chauffe-eau électroniques signalent leurs défauts par une séquence : un voyant allumé sur deux images et éteint sur les trois autres décrit un clignotement, et le rythme fait partie du diagnostic autant que la couleur.
+
+Compare donc les images entre elles avant de conclure. Décris dans "blinkPattern" ce que tu observes de variation, en clair et sans jargon d'expert — par exemple « le voyant rouge de droite est allumé sur les images 1 et 3, éteint sur les autres, ce qui correspond à un clignotement lent ». Si tout est strictement identique d'une image à l'autre, blinkPattern vaut null et tu le signales comme un affichage fixe dans "indicators".
+
+Le champ "code" ne contient que ce qui est écrit à l'écran, transcrit tel quel. N'interprète pas dans ce champ et ne complète pas un caractère douteux : un code de défaut mal lu envoie le technicien sur une fausse piste.
+
+Le champ "interpretation" accueille ta lecture technique, mais uniquement si elle est fondée. Les codes de défaut varient d'un constructeur à l'autre et souvent d'une gamme à l'autre : si la signification exacte demande le manuel du modèle, mets null plutôt qu'une hypothèse. Décrire correctement le signal a plus de valeur que le traduire de travers.`;
+
+const SYNTHESIS_PROMPT = `Tu reçois l'ensemble d'un dossier : les réponses du client au questionnaire et les analyses des photos. Produis le diagnostic qui servira à préparer l'intervention.
+
+Ce diagnostic est lu par un technicien qui va charger son camion. Sois utile à cette décision précise : quelle pièce emporter, combien de temps prévoir, et faut-il y aller aujourd'hui.
+
+Ne surestime jamais ta certitude. Trois photos et six questions ne remplacent pas une visite : si les éléments ne permettent pas de trancher entre deux causes, dis-le dans "likelyCause" et mets "confidence" à "low". Un diagnostic prudent et honnête vaut mieux qu'un diagnostic affirmatif et faux — le technicien ajustera sur place, mais il ne peut pas rattraper une pièce restée à l'atelier.
+
+Le champ "needsOnSite" vaut true dès qu'un élément déterminant reste invisible sur les photos.
+
+"summary" est la seule partie potentiellement lue par le client : une à deux phrases, sans jargon. "technicianNotes" est interne et peut être technique, direct, et mentionner les incertitudes.`;
+
 /* ------------------------------------------------------------------ */
-/* Analyse d'une photo                                                 */
+/* Photo analysis                                                      */
 /* ------------------------------------------------------------------ */
 
 export interface PhotoContext {
-  ville: string | null;
-  probleme: string | null;
-  /** Rang de la tentative — au-delà de 1, le client a déjà repris la photo. */
+  city: string | null;
+  reportedIssue: string | null;
+  /** Attempt number — above 1, the client has already retaken the photo. */
   attempt: number;
 }
 
@@ -119,8 +139,10 @@ export async function analyzePhoto(
   const anthropic = client(env);
 
   const declared = [
-    context.ville ? `Commune : ${context.ville}.` : null,
-    context.probleme ? `Problème déclaré par le client : « ${context.probleme} ».` : null,
+    context.city ? `Commune : ${context.city}.` : null,
+    context.reportedIssue
+      ? `Problème déclaré par le client : « ${context.reportedIssue} ».`
+      : null,
     context.attempt > 1
       ? `Le client a déjà repris cette photo ${context.attempt - 1} fois. Sois plus indulgent sur la qualité et plus précis sur le geste à faire.`
       : null,
@@ -132,9 +154,9 @@ export async function analyzePhoto(
     model: MODEL,
     max_tokens: 4000,
     ...REFUSAL_FALLBACK,
-    // `medium` suffit largement pour de la lecture d'étiquette et du contrôle
-    // qualité, et Opus 5 y reste très solide. Relever à `high` seulement si
-    // les évaluations sur photos réelles montrent un écart.
+    // `medium` is ample for label reading and quality control, and Opus 5 stays
+    // strong there. Raise to `high` only if evaluation on real photos shows a
+    // gap.
     output_config: {
       effort: 'medium',
       format: { type: 'json_schema', schema: PHOTO_ANALYSIS_SCHEMAS[slot] },
@@ -160,8 +182,8 @@ export async function analyzePhoto(
 
   logUsage(env, `photo:${slot}`, response.usage);
 
-  // Chaque schéma ne porte que sa section : on complète les deux autres pour
-  // que le type `PhotoAnalysis` soit uniforme quel que soit l'emplacement.
+  // Each schema carries only its own section: fill the other two so the
+  // `PhotoAnalysis` shape stays uniform whatever the slot.
   const parsed = parseJson<Partial<PhotoAnalysis>>(response);
   return {
     nameplate: null,
@@ -173,24 +195,14 @@ export async function analyzePhoto(
 }
 
 /* ------------------------------------------------------------------ */
-/* Bandeau de commande                                                 */
+/* Control panel                                                       */
 /* ------------------------------------------------------------------ */
 
-const BANDEAU_PROMPT = `Tu reçois plusieurs images du bandeau de commande d'un chauffe-eau, extraites d'une même vidéo de dix secondes et espacées régulièrement dans le temps. Elles sont fournies dans l'ordre chronologique.
-
-Ta question n'est pas « que montre cette image » mais « qu'est-ce qui change d'une image à l'autre ». Les chauffe-eau électroniques signalent leurs défauts par une séquence : un voyant allumé sur deux images et éteint sur les trois autres décrit un clignotement, et le rythme fait partie du diagnostic autant que la couleur.
-
-Compare donc les images entre elles avant de conclure. Décris dans "blinkPattern" ce que tu observes de variation, en clair et sans jargon d'expert — par exemple « le voyant rouge de droite est allumé sur les images 1 et 3, éteint sur les autres, ce qui correspond à un clignotement lent ». Si tout est strictement identique d'une image à l'autre, blinkPattern vaut null et tu le signales comme un affichage fixe dans "indicators".
-
-Le champ "code" ne contient que ce qui est écrit à l'écran, transcrit tel quel. N'interprète pas dans ce champ et ne complète pas un caractère douteux : un code de défaut mal lu envoie le technicien sur une fausse piste.
-
-Le champ "interpretation" accueille ta lecture technique, mais uniquement si elle est fondée. Les codes de défaut varient d'un constructeur à l'autre et souvent d'une gamme à l'autre : si la signification exacte demande le manuel du modèle, mets null plutôt qu'une hypothèse. Décrire correctement le signal a plus de valeur que le traduire de travers.`;
-
-export async function analyzeBandeau(
+export async function analyzeControlPanel(
   env: Env,
   frameUrls: string[],
-  context: { probleme: string | null },
-): Promise<BandeauAnalysis> {
+  context: { reportedIssue: string | null },
+): Promise<ControlPanelAnalysis> {
   const anthropic = client(env);
 
   const response = await anthropic.beta.messages.create({
@@ -199,27 +211,30 @@ export async function analyzeBandeau(
     ...REFUSAL_FALLBACK,
     output_config: {
       effort: 'medium',
-      format: { type: 'json_schema', schema: BANDEAU_SCHEMA },
+      format: { type: 'json_schema', schema: CONTROL_PANEL_SCHEMA },
     },
     system: [
       { type: 'text', text: PREAMBLE, cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: BANDEAU_PROMPT },
+      { type: 'text', text: CONTROL_PANEL_PROMPT },
     ],
     messages: [
       {
         role: 'user',
         content: [
-          // Chaque image est précédée de son rang : sans repère explicite, le
-          // modèle n'a aucun moyen de restituer l'ordre dans sa description.
+          // Each frame is preceded by its rank: with no explicit marker the
+          // model has no way to restore the order in its description.
           ...frameUrls.flatMap((url, i) => [
-            { type: 'text' as const, text: `Image ${i + 1} sur ${frameUrls.length}` },
+            {
+              type: 'text' as const,
+              text: `Image ${i + 1} sur ${frameUrls.length}`,
+            },
             { type: 'image' as const, source: { type: 'url' as const, url } },
           ]),
           {
             type: 'text' as const,
-            text: context.probleme
-              ? `Problème déclaré par le client : « ${context.probleme} ».`
-              : 'Décris ce qu\'affiche le bandeau.',
+            text: context.reportedIssue
+              ? `Problème déclaré par le client : « ${context.reportedIssue} ».`
+              : "Décris ce qu'affiche le bandeau.",
           },
         ],
       },
@@ -230,13 +245,13 @@ export async function analyzeBandeau(
     throw new VisionError('refusal', 'Analyse du bandeau déclinée.');
   }
 
-  logUsage(env, 'bandeau', response.usage);
-  const parsed = parseJson<Omit<BandeauAnalysis, 'frameCount'>>(response);
+  logUsage(env, 'control_panel', response.usage);
+  const parsed = parseJson<Omit<ControlPanelAnalysis, 'frameCount'>>(response);
   return { ...parsed, frameCount: frameUrls.length };
 }
 
 /* ------------------------------------------------------------------ */
-/* Synthèse                                                            */
+/* Synthesis                                                           */
 /* ------------------------------------------------------------------ */
 
 export async function synthesize(
@@ -244,54 +259,39 @@ export async function synthesize(
   payload: {
     answers: unknown;
     analyses: PhotoAnalysis[];
-    bandeau: BandeauAnalysis | null;
-    ville: string | null;
-    probleme: string | null;
+    panel: ControlPanelAnalysis | null;
+    city: string | null;
+    reportedIssue: string | null;
   },
-): Promise<Diagnostic> {
+): Promise<Diagnosis> {
   const anthropic = client(env);
 
   const response = await anthropic.beta.messages.create({
     model: MODEL,
     max_tokens: 8000,
     ...REFUSAL_FALLBACK,
-    // La synthèse engage un déplacement et un chiffrage : on paie l'effort.
+    // The synthesis commits a call-out and a quote: the effort is worth paying.
     output_config: {
       effort: 'high',
-      format: { type: 'json_schema', schema: DIAGNOSTIC_SCHEMA },
+      format: { type: 'json_schema', schema: DIAGNOSIS_SCHEMA },
     },
     system: [
       { type: 'text', text: PREAMBLE, cache_control: { type: 'ephemeral' } },
       { type: 'text', text: SYNTHESIS_PROMPT },
     ],
-    messages: [
-      {
-        role: 'user',
-        content: JSON.stringify(payload, null, 2),
-      },
-    ],
+    messages: [{ role: 'user', content: JSON.stringify(payload, null, 2) }],
   });
 
   if (response.stop_reason === 'refusal') {
     throw new VisionError('refusal', 'Synthèse déclinée par le modèle.');
   }
 
-  logUsage(env, 'synthese', response.usage);
-  return parseJson<Diagnostic>(response);
+  logUsage(env, 'synthesis', response.usage);
+  return parseJson<Diagnosis>(response);
 }
 
-const SYNTHESIS_PROMPT = `Tu reçois l'ensemble d'un dossier : les réponses du client au questionnaire et les analyses des photos. Produis le diagnostic qui servira à préparer l'intervention.
-
-Ce diagnostic est lu par un technicien qui va charger son camion. Sois utile à cette décision précise : quelle pièce emporter, combien de temps prévoir, et faut-il y aller aujourd'hui.
-
-Ne surestime jamais ta certitude. Trois photos et six questions ne remplacent pas une visite : si les éléments ne permettent pas de trancher entre deux causes, dis-le dans "likelyCause" et mets "confidence" à "faible". Un diagnostic prudent et honnête vaut mieux qu'un diagnostic affirmatif et faux — le technicien ajustera sur place, mais il ne peut pas rattraper une pièce restée à l'atelier.
-
-Le champ "needsOnSite" vaut true dès qu'un élément déterminant reste invisible sur les photos.
-
-"summary" est la seule partie potentiellement lue par le client : une à deux phrases, sans jargon. "technicianNotes" est interne et peut être technique, direct, et mentionner les incertitudes.`;
-
 /* ------------------------------------------------------------------ */
-/* Utilitaires                                                         */
+/* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
 export class VisionError extends Error {
@@ -308,13 +308,13 @@ function parseJson<T>(response: { content: Array<{ type: string }> }): T {
   const block = response.content.find(
     (b): b is { type: 'text'; text: string } => b.type === 'text',
   );
-  if (!block) throw new VisionError('empty', 'Réponse sans bloc texte.');
+  if (!block) throw new VisionError('empty', 'Response carried no text block.');
   try {
     return JSON.parse(block.text) as T;
   } catch {
-    // `output_config.format` garantit la conformité au schéma ; arriver ici
-    // signale un incident côté API, pas une donnée client inhabituelle.
-    throw new VisionError('malformed', 'JSON non parseable malgré le schéma.');
+    // `output_config.format` guarantees schema conformance; reaching here
+    // signals an API incident, not unusual client data.
+    throw new VisionError('malformed', 'JSON unparseable despite the schema.');
   }
 }
 
@@ -327,8 +327,8 @@ function logUsage(
     cache_read_input_tokens?: number | null;
   },
 ): void {
-  // Sans cette trace, la dérive de coût est invisible. `cache_read` à zéro sur
-  // des appels successifs signale que le préfixe a été invalidé.
+  // Without this trace, cost drift is invisible. A zero `cached` across
+  // successive calls means the prefix was invalidated.
   if (env.LOG_USAGE !== 'true') return;
   console.log(
     JSON.stringify({

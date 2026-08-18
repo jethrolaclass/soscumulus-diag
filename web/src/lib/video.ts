@@ -1,43 +1,39 @@
 /**
- * Extraction d'images fixes depuis la vidéo du bandeau de commande.
+ * Extract still frames from the control-panel video.
  *
- * Pourquoi filmer puis découper plutôt que photographier : les chauffe-eau
- * électroniques signalent leurs défauts par une *séquence* de clignotements —
- * trois éclats courts puis un long ne décrit pas la même panne qu'un
- * clignotement continu. Une photo unique perd l'information ; une poignée
- * d'images régulièrement espacées la conserve.
+ * Why film then slice rather than photograph: electronic water heaters signal
+ * faults through a *sequence* of blinks — three short flashes then a long one
+ * is not the same fault as a steady blink. A single photo loses that
+ * information; a handful of evenly spaced frames keeps it.
  *
- * La vidéo brute n'est jamais envoyée. Dix secondes de capture pèsent 15 à
- * 25 Mo sur un téléphone récent, soit une minute d'attente sur le réseau d'une
- * cave, pour un fichier que le technicien ne consultera pas si les images
- * suffisent. Les images extraites totalisent environ 250 Ko.
+ * The frames are what the model reads. The source video is uploaded separately
+ * and off the critical path, for human review only.
  */
 
 /**
- * Cinq images sur dix secondes : assez pour caractériser une séquence de
- * clignotements, sans faire exploser le coût en tokens image (chaque image
- * facturée est une image de plus dans le même appel).
+ * Five frames over ten seconds: enough to characterise a blink sequence
+ * without blowing up the image-token cost, since every frame is one more
+ * billed image in the same call.
  */
 const FRAME_COUNT = 5;
 
 /**
- * Plus petit que pour les photos : il s'agit de lire deux caractères sur un
- * afficheur ou de repérer quel voyant est allumé, pas de déchiffrer une
- * étiquette imprimée en corps 6.
+ * Smaller than for photos: the job is reading two characters on a display or
+ * spotting which light is on, not deciphering a label printed in 6 point.
  */
 const MAX_EDGE = 1024;
 const JPEG_QUALITY = 0.85;
 
-/** Les premières fractions de seconde servent à la mise au point. */
+/** The first fractions of a second are spent focusing. */
 const LEAD_IN_S = 0.4;
 const TAIL_S = 0.2;
 
-/** Au-delà, on considère la lecture de métadonnées ou le seek en échec. */
+/** Past this, metadata reading or seeking is considered failed. */
 const STEP_TIMEOUT_MS = 6_000;
 
 export interface ExtractedFrames {
   blobs: Blob[];
-  /** Pour l'aperçu — à révoquer par l'appelant. */
+  /** For the preview — the caller must revoke it. */
   previewUrl: string;
   durationS: number;
 }
@@ -54,8 +50,8 @@ export class VideoError extends Error {
 export async function extractFrames(file: File): Promise<ExtractedFrames> {
   const url = URL.createObjectURL(file);
   const video = document.createElement('video');
-  // `muted` et `playsInline` sont indispensables : sans eux iOS refuse de
-  // décoder une vidéo hors interaction utilisateur, et le seek ne rend jamais.
+  // `muted` and `playsInline` are mandatory: without them iOS refuses to
+  // decode a video outside a user gesture and the seek never resolves.
   video.muted = true;
   video.playsInline = true;
   video.preload = 'auto';
@@ -65,14 +61,14 @@ export async function extractFrames(file: File): Promise<ExtractedFrames> {
     const duration = await loadDuration(video);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new VideoError('decode', 'Canvas indisponible.');
+    if (!ctx) throw new VideoError('decode', 'Canvas unavailable.');
 
     const usable = Math.max(0, duration - LEAD_IN_S - TAIL_S);
     const blobs: Blob[] = [];
 
     for (let i = 0; i < FRAME_COUNT; i++) {
-      // Répartition régulière : c'est l'espacement constant qui rend la
-      // séquence lisible. Ne pas trier ces images par netteté.
+      // Even spacing: it is the constant interval that makes the sequence
+      // readable. Do not sort these frames by sharpness.
       const t = LEAD_IN_S + (usable * i) / Math.max(1, FRAME_COUNT - 1);
       await seek(video, Math.min(t, duration - 0.05));
 
@@ -89,7 +85,7 @@ export async function extractFrames(file: File): Promise<ExtractedFrames> {
     }
 
     if (blobs.length === 0) {
-      throw new VideoError('empty', 'Aucune image extraite.');
+      throw new VideoError('empty', 'No frame extracted.');
     }
 
     return {
@@ -105,9 +101,9 @@ export async function extractFrames(file: File): Promise<ExtractedFrames> {
 }
 
 /**
- * Certains conteneurs — notamment ce que produisent des enregistreurs
- * navigateur — annoncent une durée infinie tant qu'on n'a pas cherché la fin
- * du flux. On force alors un seek très lointain pour que le lecteur recalcule.
+ * Some containers — notably those produced by browser recorders — report an
+ * infinite duration until the end of the stream has been sought. We force a
+ * very distant seek so the player recomputes it.
  */
 async function loadDuration(video: HTMLVideoElement): Promise<number> {
   await once(video, 'loadedmetadata', 'metadata');
@@ -121,7 +117,7 @@ async function loadDuration(video: HTMLVideoElement): Promise<number> {
   video.currentTime = 0;
 
   if (!Number.isFinite(video.duration) || video.duration <= 0) {
-    throw new VideoError('metadata', 'Durée de la vidéo illisible.');
+    throw new VideoError('metadata', 'Video duration unreadable.');
   }
   return video.duration;
 }
@@ -139,7 +135,7 @@ function once(
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup();
-      reject(new VideoError(code, `Délai dépassé sur « ${event} ».`));
+      reject(new VideoError(code, `Timed out waiting for "${event}".`));
     }, STEP_TIMEOUT_MS);
 
     const onOk = () => {
@@ -148,7 +144,7 @@ function once(
     };
     const onErr = () => {
       cleanup();
-      reject(new VideoError('decode', 'Vidéo non décodable.'));
+      reject(new VideoError('decode', 'Video cannot be decoded.'));
     };
     const cleanup = () => {
       clearTimeout(timer);
@@ -164,7 +160,7 @@ function once(
 function toJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new VideoError('decode', 'Encodage échoué.'))),
+      (b) => (b ? resolve(b) : reject(new VideoError('decode', 'Encoding failed.'))),
       'image/jpeg',
       JPEG_QUALITY,
     );

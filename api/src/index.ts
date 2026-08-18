@@ -1,10 +1,10 @@
 import type { Env } from './env';
 import { purgeExpired } from './lib/db';
 import { handleLead } from './routes/lead';
-import { handleGetDossier, handleAnswers, handleSubmit } from './routes/dossier';
+import { handleGetCase, handleAnswers, handleSubmit } from './routes/case';
 import { handlePhotoUpload, handleSkipPhoto } from './routes/photo';
+import { handlePanelFrame, handlePanelVideo } from './routes/panel';
 import { handleImage } from './routes/image';
-import { handleBandeauFrame, handleBandeauVideo } from './routes/bandeau';
 import { json, preflight, withCors, ApiHttpError } from './lib/http';
 
 export default {
@@ -17,8 +17,8 @@ export default {
       if (err instanceof ApiHttpError) {
         return withCors(env, json({ error: err.code, message: err.message }, err.status));
       }
-      // Le détail reste dans les logs : un message d'erreur interne renvoyé au
-      // client renseigne autant un attaquant qu'un développeur.
+      // Details stay in the logs: an internal error message returned to the
+      // client informs an attacker as much as a developer.
       console.error('unhandled', err);
       return withCors(
         env,
@@ -27,10 +27,10 @@ export default {
     }
   },
 
-  /** Purge RGPD quotidienne — cf. `[triggers]` dans wrangler.toml. */
+  /** Daily GDPR purge — see `[triggers]` in wrangler.toml. */
   async scheduled(_event: ScheduledController, env: Env): Promise<void> {
     const n = await purgeExpired(env);
-    if (n > 0) console.log(`purge: ${n} dossier(s) expiré(s)`);
+    if (n > 0) console.log(`purge: ${n} expired case(s)`);
   },
 };
 
@@ -43,46 +43,46 @@ async function route(
   const seg = url.pathname.split('/').filter(Boolean);
   const method = req.method;
 
-  // GET /i/:key — image signée, consommée par l'API vision.
+  // GET /i/:key — signed image, consumed by the vision API.
   if (seg[0] === 'i' && seg.length === 2 && method === 'GET') {
     return handleImage(req, env, decodeURIComponent(seg[1]));
   }
 
   if (seg[0] !== 'api') return json({ error: 'not_found', message: '' }, 404);
 
-  // POST /api/lead — appelé par Google Apps Script.
+  // POST /api/lead — called by Google Apps Script.
   if (seg[1] === 'lead' && seg.length === 2 && method === 'POST') {
     return handleLead(req, env, ctx);
   }
 
-  if (seg[1] === 'dossier' && seg[2]) {
+  if (seg[1] === 'case' && seg[2]) {
     const token = seg[2];
 
-    // GET /api/dossier/:token
+    // GET /api/case/:token
     if (seg.length === 3 && method === 'GET') {
-      return handleGetDossier(env, token);
+      return handleGetCase(env, token);
     }
-    // PATCH /api/dossier/:token/answers
+    // PATCH /api/case/:token/answers
     if (seg[3] === 'answers' && seg.length === 4 && method === 'PATCH') {
       return handleAnswers(req, env, token);
     }
-    // POST /api/dossier/:token/photo?slot=N
+    // POST /api/case/:token/photo?slot=N
     if (seg[3] === 'photo' && seg.length === 4 && method === 'POST') {
       return handlePhotoUpload(req, env, ctx, token, url.searchParams.get('slot'));
     }
-    // POST /api/dossier/:token/photo/:slot/skip
+    // POST /api/case/:token/photo/:slot/skip
     if (seg[3] === 'photo' && seg[5] === 'skip' && method === 'POST') {
       return handleSkipPhoto(env, token, seg[4]);
     }
-    // POST /api/dossier/:token/bandeau?i=<rang>&n=<total>
-    if (seg[3] === 'bandeau' && seg.length === 4 && method === 'POST') {
-      return handleBandeauFrame(req, env, ctx, token, url.searchParams);
+    // POST /api/case/:token/panel?i=<rank>&n=<total>
+    if (seg[3] === 'panel' && seg.length === 4 && method === 'POST') {
+      return handlePanelFrame(req, env, ctx, token, url.searchParams);
     }
-    // POST /api/dossier/:token/bandeau/video
-    if (seg[3] === 'bandeau' && seg[4] === 'video' && method === 'POST') {
-      return handleBandeauVideo(req, env, token);
+    // POST /api/case/:token/panel/video
+    if (seg[3] === 'panel' && seg[4] === 'video' && method === 'POST') {
+      return handlePanelVideo(req, env, token);
     }
-    // POST /api/dossier/:token/submit
+    // POST /api/case/:token/submit
     if (seg[3] === 'submit' && seg.length === 4 && method === 'POST') {
       return handleSubmit(req, env, ctx, token);
     }

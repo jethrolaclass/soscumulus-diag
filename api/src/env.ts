@@ -4,39 +4,39 @@ export interface Env {
   PHOTOS: R2Bucket;
 
   /* Secrets (wrangler secret put) ---------------------------------- */
-  /** Clé API Anthropic. */
+  /** Anthropic API key. */
   ANTHROPIC_API_KEY: string;
-  /** Clé HMAC des tokens de dossier et des URL d'image signées. */
+  /** HMAC key for case tokens and signed image URLs. */
   SIGNING_KEY: string;
-  /** Clé API du fournisseur SMS. */
+  /** SMS provider API key. */
   SMS_API_KEY: string;
-  /** Partagé avec Google Apps Script pour authentifier POST /api/lead. */
+  /** Shared with Google Apps Script to authenticate POST /api/lead. */
   LEAD_SECRET: string;
-  /** Secret du webhook de génération de fiche (Apps Script). */
-  FICHE_SECRET: string;
+  /** Shared secret for the report-generation webhook (Apps Script). */
+  REPORT_SECRET: string;
 
   /* Variables (wrangler.toml) -------------------------------------- */
-  /** Origine publique de l'API, ex. https://api.diag.soscumulus.fr */
+  /** Public origin of the API, e.g. https://diag-api.soscumulus.fr */
   PUBLIC_API_URL: string;
-  /** Origine du front, ex. https://diag.soscumulus.fr */
+  /** Origin of the front end, e.g. https://diag.soscumulus.fr */
   PUBLIC_WEB_URL: string;
-  /** URL du web app Apps Script qui remplit le template de fiche. */
-  FICHE_WEBHOOK_URL: string;
-  /** Expéditeur SMS alphanumérique déclaré chez le fournisseur. */
+  /** URL of the Apps Script web app that fills the report template. */
+  REPORT_WEBHOOK_URL: string;
+  /** Alphanumeric SMS sender registered with the provider. */
   SMS_SENDER: string;
-  /** Numéro affiché au client en cas d'arrêt sécurité. */
-  URGENCE_TEL: string;
+  /** On-call number shown to the client on the safety-stop screen. */
+  EMERGENCY_PHONE: string;
   /**
-   * Liste blanche d'envoi SMS, numéros séparés par des virgules.
+   * SMS send allowlist, comma-separated numbers.
    *
-   * Non vide : seuls ces numéros reçoivent réellement un SMS — les autres
-   * dossiers sont créés normalement, avec leur lien, mais rien ne part. C'est
-   * le garde-fou de la phase de test.
+   * Non-empty: only these numbers actually receive a text — every other case
+   * is created normally, link included, but nothing is sent. This is the
+   * test-phase guard.
    *
-   * **Vider cette variable pour la mise en service.** Tant qu'elle est
-   * renseignée, aucun client réel ne reçoit son lien.
+   * **Clear this variable to go live.** While it is set, no real client
+   * receives their link.
    */
   SMS_ALLOWLIST?: string;
-  /** "true" pour tracer la consommation de tokens. */
+  /** "true" to log token consumption. */
   LOG_USAGE?: string;
 }

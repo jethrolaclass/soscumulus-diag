@@ -1,8 +1,8 @@
 import './styles.css';
 import type {
   Answers,
-  Diagnostic,
-  Dossier,
+  Diagnosis,
+  DiagnosisCase,
   PhotoSlot,
   SafetyFlag,
 } from '../../shared/types';
@@ -11,47 +11,46 @@ import * as api from './lib/api';
 import { localGuidance, normalizePhoto } from './lib/image';
 import { extractFrames } from './lib/video';
 import {
-  BANDEAU_SCREEN,
   CONTEXT_QUESTIONS,
+  PANEL_SCREEN,
   PHOTO_SCREENS,
   PROBLEM_QUESTIONS,
   SAFETY_QUESTION,
   SCREEN_META,
-  SAFETY_QUESTION as SAFETY,
   type Question,
   type ScreenId,
 } from './questions';
 
 /* ------------------------------------------------------------------ */
-/* État                                                                */
+/* State                                                               */
 /* ------------------------------------------------------------------ */
 
-interface PhotoUi {
+interface CaptureUi {
   previewUrl: string | null;
-  /** Message affiché sous l'aperçu. */
+  /** Message shown under the preview. */
   verdict: { tone: 'ok' | 'ko' | 'wait'; text: string } | null;
   busy: boolean;
-  /** Le client peut conserver une photo refusée : on ne le bloque jamais. */
+  /** The client may keep a rejected photo: we never block them. */
   keepOffered: boolean;
 }
 
 const state = {
   token: '',
-  dossier: null as Dossier | null,
+  data: null as DiagnosisCase | null,
   screen: 's0' as ScreenId,
   answers: {} as Answers,
   photoUi: {
-    1: emptyPhotoUi(),
-    2: emptyPhotoUi(),
-    3: emptyPhotoUi(),
-  } as Record<PhotoSlot, PhotoUi>,
-  diagnostic: null as Diagnostic | null,
+    1: emptyCaptureUi(),
+    2: emptyCaptureUi(),
+    3: emptyCaptureUi(),
+  } as Record<PhotoSlot, CaptureUi>,
+  diagnosis: null as Diagnosis | null,
   submitting: false,
-  /** Photo refusée par le pré-filtre local, conservée si le client insiste. */
+  /** Photo rejected by the local pre-filter, kept if the client insists. */
   pendingBlob: null as Blob | null,
-  bandeauUi: emptyPhotoUi(),
-  bandeauSkipped: false,
-  /** Envoi de la vidéo source, mené en tâche de fond. */
+  panelUi: emptyCaptureUi(),
+  panelSkipped: false,
+  /** Source-video upload, carried out in the background. */
   video: {
     active: false,
     ratio: 0,
@@ -61,14 +60,14 @@ const state = {
   },
 };
 
-function emptyPhotoUi(): PhotoUi {
+function emptyCaptureUi(): CaptureUi {
   return { previewUrl: null, verdict: null, busy: false, keepOffered: false };
 }
 
 const app = document.getElementById('app')!;
 
 /* ------------------------------------------------------------------ */
-/* Amorçage                                                            */
+/* Bootstrap                                                           */
 /* ------------------------------------------------------------------ */
 
 async function boot(): Promise<void> {
@@ -77,24 +76,24 @@ async function boot(): Promise<void> {
 
   state.token = token;
   try {
-    state.dossier = await api.getDossier(token);
+    state.data = await api.getCase(token);
   } catch {
     return renderFatal(
       "Ce lien n'est plus valide. Contactez-nous et nous vous en enverrons un nouveau.",
     );
   }
 
-  state.answers = state.dossier.answers ?? {};
-  state.diagnostic = state.dossier.diagnostic;
+  state.answers = state.data.answers ?? {};
+  state.diagnosis = state.data.diagnosis;
 
-  // Reprise en cours de route : le client a pu fermer l'onglet et rouvrir le
-  // SMS plus tard. On le replace là où il s'était arrêté plutôt qu'au début.
-  if (state.dossier.status === 'stop_securite') state.screen = 's-stop';
-  else if (state.dossier.status === 'soumis') state.screen = 's6';
-  else state.screen = resumeScreen(state.dossier);
+  // Resuming mid-journey: the client may have closed the tab and reopened the
+  // text later. Put them back where they stopped rather than at the start.
+  if (state.data.status === 'safety_stop') state.screen = 's-stop';
+  else if (state.data.status === 'submitted') state.screen = 's6';
+  else state.screen = resumeScreen(state.data);
 
   for (const slot of [1, 2, 3] as PhotoSlot[]) {
-    const p = state.dossier.photos[slot];
+    const p = state.data.photos[slot];
     if (p.uploaded && p.analysis) {
       state.photoUi[slot].verdict = verdictFor(p.analysis.usable, p.analysis.guidance);
     }
@@ -103,24 +102,25 @@ async function boot(): Promise<void> {
   render();
 }
 
-function resumeScreen(d: Dossier): ScreenId {
+function resumeScreen(d: DiagnosisCase): ScreenId {
   if (!d.answers.safety?.length) return 's0';
   for (const slot of [1, 2, 3] as PhotoSlot[]) {
     const p = d.photos[slot];
-    if (!p.uploaded && !p.skipped) return (`s${slot}` as ScreenId);
+    if (!p.uploaded && !p.skipped) return `s${slot}` as ScreenId;
   }
-  if (!d.answers.ou || !d.answers.eauChaude || !d.answers.ecran) return 's4';
-  if (d.answers.ecran === 'oui' && !d.bandeau.captured) return 's4b';
-  if (!d.answers.statut || !d.answers.acces || !d.answers.dispo) return 's5';
+  if (!d.answers.waterLocation || !d.answers.hotWater || !d.answers.hasPanel) {
+    return 's4';
+  }
+  if (d.answers.hasPanel === 'yes' && !d.panel.captured) return 's4b';
   return 's5';
 }
 
 /* ------------------------------------------------------------------ */
-/* Rendu                                                               */
+/* Rendering                                                           */
 /* ------------------------------------------------------------------ */
 
 function render(): void {
-  const d = state.dossier;
+  const d = state.data;
   const meta = SCREEN_META[state.screen];
 
   app.innerHTML = `
@@ -143,9 +143,9 @@ function render(): void {
 }
 
 /**
- * Visible sur tous les écrans tant que l'envoi dure : la vidéo continue de
- * partir pendant que le client répond aux dernières questions, et il doit
- * pouvoir le constater sans revenir en arrière.
+ * Visible on every screen while the upload lasts: the video keeps going while
+ * the client answers the last questions, and they must be able to see it
+ * without navigating back.
  */
 function backgroundUploadBar(): string {
   const v = state.video;
@@ -164,7 +164,7 @@ function backgroundUploadBar(): string {
 function slotStrip(): string {
   return ([1, 2, 3] as PhotoSlot[])
     .map((slot) => {
-      const p = state.dossier?.photos[slot];
+      const p = state.data?.photos[slot];
       const ui = state.photoUi[slot];
       const active = state.screen === `s${slot}`;
       const done = p?.uploaded || p?.skipped;
@@ -185,7 +185,7 @@ function screenBody(): string {
     case 's0':
       return welcomeScreen();
     case 's-stop':
-      return stopScreen();
+      return safetyStopScreen();
     case 's1':
     case 's2':
     case 's3':
@@ -193,7 +193,7 @@ function screenBody(): string {
     case 's4':
       return questionScreen('Le problème', 'Trois questions rapides', PROBLEM_QUESTIONS);
     case 's4b':
-      return bandeauScreen();
+      return panelScreen();
     case 's5':
       return questionScreen('Vous et votre logement', 'Presque terminé', CONTEXT_QUESTIONS);
     case 's6':
@@ -201,15 +201,15 @@ function screenBody(): string {
   }
 }
 
-/* ---------- Accueil ---------- */
+/* ---------- Welcome ---------- */
 
 function welcomeScreen(): string {
-  const d = state.dossier!;
-  // Le formulaire du site a déjà collecté téléphone, ville et problème :
-  // on les rappelle pour rassurer, on ne les redemande pas.
+  const d = state.data!;
+  // The website form already collected phone, city and issue: we show them
+  // back to reassure, we never ask again.
   const known = [
-    d.tel ? `<span>📞 ${escapeHtml(d.tel)}</span>` : '',
-    d.ville ? `<span>📍 ${escapeHtml(d.ville)}</span>` : '',
+    d.phone ? `<span>📞 ${escapeHtml(d.phone)}</span>` : '',
+    d.city ? `<span>📍 ${escapeHtml(d.city)}</span>` : '',
   ].join('');
 
   return `
@@ -217,13 +217,13 @@ function welcomeScreen(): string {
     <h1>Votre diagnostic, sans attendre une visite.</h1>
     <p class="lead">3 photos, quelques questions, et notre technicien vous rappelle avec un diagnostic clair.</p>
     <div class="known">${known}</div>
-    ${d.probleme ? `<p class="hint">Votre demande : « ${escapeHtml(d.probleme)} »</p>` : ''}
+    ${d.reportedIssue ? `<p class="hint">Votre demande : « ${escapeHtml(d.reportedIssue)} »</p>` : ''}
     <div class="card">${questionBlock(SAFETY_QUESTION)}</div>
     <div class="trust"><span class="lock">🔒</span>Vos photos ne servent qu'à votre diagnostic et à votre dossier d'intervention, conservé 2 ans.</div>
   `;
 }
 
-function stopScreen(): string {
+function safetyStopScreen(): string {
   return `
     <div class="stop">
       <p class="eyebrow" style="color:var(--ko)">Sécurité d'abord</p>
@@ -235,7 +235,7 @@ function stopScreen(): string {
         <li>Ne touchez pas aux fils. Éloignez ce qui est électrique de l'eau.</li>
         <li>Odeur de gaz : ouvrez les fenêtres, ne touchez à aucun interrupteur, sortez et appelez le 18.</li>
       </ol>
-      <a class="call" href="tel:${escapeHtml(state.dossier!.urgenceTel)}">📞 Nous appeler maintenant</a>
+      <a class="call" href="tel:${escapeHtml(state.data!.emergencyPhone)}">📞 Nous appeler maintenant</a>
     </div>
     <p class="hint" style="margin-top:12px">Un technicien SOS Cumulus a été alerté et vous rappelle au numéro indiqué.</p>
   `;
@@ -246,56 +246,52 @@ function stopScreen(): string {
 function photoScreen(slot: PhotoSlot): string {
   const cfg = PHOTO_SCREENS[slot];
   const ui = state.photoUi[slot];
-  const p = state.dossier!.photos[slot];
-
-  const verdict = ui.verdict
-    ? ui.verdict.tone === 'wait'
-      ? `<div class="verdict wait"><span class="spinner"></span>${escapeHtml(ui.verdict.text)}</div>`
-      : `<div class="verdict ${ui.verdict.tone}">${escapeHtml(ui.verdict.text)}</div>`
-    : '';
+  const p = state.data!.photos[slot];
 
   return `
     <p class="eyebrow">${cfg.eyebrow}</p>
     <h1>${cfg.title}</h1>
     <p class="lead">${cfg.lead}</p>
     ${ui.previewUrl ? `<div class="shot"><img src="${ui.previewUrl}" alt="Votre photo"></div>` : ''}
-    ${verdict}
+    ${verdictHtml(ui)}
     ${ui.keepOffered ? `<button class="skip" data-keep="${slot}">Garder cette photo quand même</button>` : ''}
     ${p.skipped ? '' : `<div><button class="skip" data-skip="${slot}">${cfg.skipLabel}</button></div>`}
     <input class="sr" type="file" accept="image/*" capture="environment" id="file-${slot}">
   `;
 }
 
-/* ---------- Bandeau ---------- */
+function verdictHtml(ui: CaptureUi): string {
+  if (!ui.verdict) return '';
+  if (ui.verdict.tone === 'wait') {
+    return `<div class="verdict wait"><span class="spinner"></span>${escapeHtml(ui.verdict.text)}</div>`;
+  }
+  return `<div class="verdict ${ui.verdict.tone}">${escapeHtml(ui.verdict.text)}</div>`;
+}
 
-function bandeauScreen(): string {
-  const ui = state.bandeauUi;
-  const b = state.dossier!.bandeau;
+/* ---------- Control panel ---------- */
 
-  const verdict = ui.verdict
-    ? ui.verdict.tone === 'wait'
-      ? `<div class="verdict wait"><span class="spinner"></span>${escapeHtml(ui.verdict.text)}</div>`
-      : `<div class="verdict ${ui.verdict.tone}">${escapeHtml(ui.verdict.text)}</div>`
-    : '';
+function panelScreen(): string {
+  const ui = state.panelUi;
+  const panel = state.data!.panel;
 
-  // Ce que le modèle a lu est renvoyé au client : voir « E3 » s'afficher
-  // confirme que la capture a servi à quelque chose.
-  const lecture =
-    b.analysis && (b.analysis.code || b.analysis.blinkPattern)
+  // What the model read is shown back to the client: seeing "E3" appear
+  // confirms the capture was worth making.
+  const reading =
+    panel.analysis && (panel.analysis.code || panel.analysis.blinkPattern)
       ? `<div class="learned">Lu sur le bandeau : ${escapeHtml(
-          b.analysis.code ?? b.analysis.blinkPattern ?? '',
+          panel.analysis.code ?? panel.analysis.blinkPattern ?? '',
         )}</div>`
       : '';
 
   return `
-    <p class="eyebrow">${BANDEAU_SCREEN.eyebrow}</p>
-    <h1>${BANDEAU_SCREEN.title}</h1>
-    <p class="lead">${BANDEAU_SCREEN.lead}</p>
+    <p class="eyebrow">${PANEL_SCREEN.eyebrow}</p>
+    <h1>${PANEL_SCREEN.title}</h1>
+    <p class="lead">${PANEL_SCREEN.lead}</p>
     ${ui.previewUrl ? `<div class="shot"><img src="${ui.previewUrl}" alt="Image du bandeau"></div>` : ''}
-    ${verdict}
-    ${lecture}
-    ${state.bandeauSkipped ? '' : '<div><button class="skip" data-skip-bandeau>' + BANDEAU_SCREEN.skipLabel + '</button></div>'}
-    <input class="sr" type="file" accept="video/*" capture="environment" id="file-bandeau">
+    ${verdictHtml(ui)}
+    ${reading}
+    ${state.panelSkipped ? '' : `<div><button class="skip" data-skip-panel>${PANEL_SCREEN.skipLabel}</button></div>`}
+    <input class="sr" type="file" accept="video/*" capture="environment" id="file-panel">
   `;
 }
 
@@ -337,13 +333,17 @@ function questionBlock(q: Question): string {
 /* ---------- Confirmation ---------- */
 
 function doneScreen(): string {
-  const d = state.dossier!;
-  const diag = state.diagnostic;
+  const d = state.data!;
+  const diagnosis = state.diagnosis;
   const count = ([1, 2, 3] as PhotoSlot[]).filter((s) => d.photos[s].uploaded).length;
   const nameplate = d.photos[1].analysis?.nameplate;
-  const appareil =
+  const unit =
     nameplate?.readable && (nameplate.brand || nameplate.model)
-      ? [nameplate.brand, nameplate.model, nameplate.capacityLiters ? `${nameplate.capacityLiters} L` : null]
+      ? [
+          nameplate.brand,
+          nameplate.model,
+          nameplate.capacityLiters ? `${nameplate.capacityLiters} L` : null,
+        ]
           .filter(Boolean)
           .join(' · ')
       : 'À confirmer par le technicien';
@@ -351,13 +351,13 @@ function doneScreen(): string {
   return `
     <div class="done-hero"><div class="check">✓</div>
       <h1>Votre dossier est parti.</h1>
-      <p class="lead">${diag ? escapeHtml(diag.summary) : 'Notre technicien examine vos éléments.'}</p>
+      <p class="lead">${diagnosis ? escapeHtml(diagnosis.summary) : 'Notre technicien examine vos éléments.'}</p>
     </div>
     <div class="card recap">
       <h2>Votre dossier ${d.ref}</h2>
       <div class="row"><span class="k">Photos</span><span class="v">${count} / 3</span></div>
-      <div class="row"><span class="k">Appareil</span><span class="v">${escapeHtml(appareil)}</span></div>
-      <div class="row"><span class="k">Rappel</span><span class="v">${escapeHtml(dispoLabel(d.answers.dispo))}</span></div>
+      <div class="row"><span class="k">Appareil</span><span class="v">${escapeHtml(unit)}</span></div>
+      <div class="row"><span class="k">Rappel</span><span class="v">${escapeHtml(availabilityLabel(d.answers.availability))}</span></div>
     </div>
     <div class="card">
       <h2>Et ensuite ?</h2>
@@ -370,16 +370,17 @@ function doneScreen(): string {
   `;
 }
 
-const DISPO_LABELS: Record<string, string> = {
-  matin: 'Le matin',
-  midi: 'Vers midi',
-  aprem: "L'après-midi",
-  soir: 'En fin de journée',
+const AVAILABILITY_LABELS: Record<string, string> = {
+  morning: 'Le matin',
+  midday: 'Vers midi',
+  afternoon: "L'après-midi",
+  evening: 'En fin de journée',
 };
-const dispoLabel = (d?: string) => (d ? (DISPO_LABELS[d] ?? '—') : 'Dès que possible');
+const availabilityLabel = (a?: string) =>
+  a ? (AVAILABILITY_LABELS[a] ?? '—') : 'Dès que possible';
 
 /* ------------------------------------------------------------------ */
-/* Barre d'action                                                      */
+/* Action bar                                                          */
 /* ------------------------------------------------------------------ */
 
 function actionsBar(): string {
@@ -390,7 +391,7 @@ function actionsBar(): string {
 
   if (isPhotoScreen(state.screen)) {
     const slot = Number(state.screen[1]) as PhotoSlot;
-    const p = state.dossier!.photos[slot];
+    const p = state.data!.photos[slot];
     const ui = state.photoUi[slot];
     if (ui.busy) {
       label = 'Analyse en cours…';
@@ -405,11 +406,11 @@ function actionsBar(): string {
   } else if (state.screen === 's4') {
     disabled = !PROBLEM_QUESTIONS.every((q) => state.answers[q.key]);
   } else if (state.screen === 's4b') {
-    const b = state.dossier!.bandeau;
-    if (state.bandeauUi.busy) {
+    const panel = state.data!.panel;
+    if (state.panelUi.busy) {
       label = 'Analyse en cours…';
       disabled = true;
-    } else if (b.captured || state.bandeauSkipped) {
+    } else if (panel.captured || state.panelSkipped) {
       label = 'Continuer →';
     } else {
       label = '🎥 Filmer 10 secondes';
@@ -458,29 +459,25 @@ function bind(): void {
       ?.addEventListener('change', (e) => onFile(e, slot));
   }
 
-  app
-    .querySelector<HTMLInputElement>('#file-bandeau')
-    ?.addEventListener('change', onVideo);
-  app
-    .querySelector<HTMLButtonElement>('[data-skip-bandeau]')
-    ?.addEventListener('click', onSkipBandeau);
+  app.querySelector<HTMLInputElement>('#file-panel')?.addEventListener('change', onVideo);
+  app.querySelector<HTMLButtonElement>('[data-skip-panel]')?.addEventListener('click', onSkipPanel);
 }
 
 function onChoice(key: string, rawValue: string): void {
-  const q = [SAFETY, ...PROBLEM_QUESTIONS, ...CONTEXT_QUESTIONS].find(
+  const q = [SAFETY_QUESTION, ...PROBLEM_QUESTIONS, ...CONTEXT_QUESTIONS].find(
     (x) => x.key === key,
   )!;
 
   if (q.multi) {
     const current = new Set((state.answers.safety ?? []) as SafetyFlag[]);
     const value = rawValue as SafetyFlag;
-    // « Aucun de ces cas » est exclusif : le cocher efface les dangers, et
-    // cocher un danger l'efface.
-    if (value === 'aucun') {
+    // "None of these" is exclusive: ticking it clears the hazards, and ticking
+    // a hazard clears it.
+    if (value === 'none') {
       current.clear();
-      current.add('aucun');
+      current.add('none');
     } else {
-      current.delete('aucun');
+      current.delete('none');
       current.has(value) ? current.delete(value) : current.add(value);
     }
     state.answers.safety = [...current];
@@ -495,28 +492,28 @@ function onChoice(key: string, rawValue: string): void {
 async function persistAnswers(): Promise<void> {
   try {
     const res = await api.patchAnswers(state.token, state.answers);
-    if (res.status === 'stop_securite') {
+    if (res.status === 'safety_stop') {
       state.screen = 's-stop';
       render();
     }
   } catch {
-    // Silencieux : les réponses sont conservées localement et repartiront à
-    // la soumission. Afficher une erreur réseau à ce stade ne ferait
-    // qu'inquiéter sans rien permettre de corriger.
+    // Silent: answers are held locally and will be sent again on submission.
+    // Showing a network error here would only worry the client without giving
+    // them anything to fix.
   }
 }
 
 function onPrimary(): void {
   if (state.screen === 's0') {
     const flags = state.answers.safety ?? [];
-    const danger = flags.some((f) => BLOCKING_SAFETY_FLAGS.includes(f));
-    state.screen = danger ? 's-stop' : 's1';
+    const hazard = flags.some((f) => BLOCKING_SAFETY_FLAGS.includes(f));
+    state.screen = hazard ? 's-stop' : 's1';
     return render();
   }
 
   if (isPhotoScreen(state.screen)) {
     const slot = Number(state.screen[1]) as PhotoSlot;
-    const p = state.dossier!.photos[slot];
+    const p = state.data!.photos[slot];
     if (p.uploaded || p.skipped) {
       state.screen = slot === 3 ? 's4' : (`s${slot + 1}` as ScreenId);
       return render();
@@ -525,18 +522,18 @@ function onPrimary(): void {
   }
 
   if (state.screen === 's4') {
-    // Le bandeau n'a de sens que sur un appareil électronique.
-    state.screen = state.answers.ecran === 'oui' ? 's4b' : 's5';
+    // The panel step only makes sense on an electronic unit.
+    state.screen = state.answers.hasPanel === 'yes' ? 's4b' : 's5';
     return render();
   }
 
   if (state.screen === 's4b') {
-    const b = state.dossier!.bandeau;
-    if (b.captured || state.bandeauSkipped) {
+    const panel = state.data!.panel;
+    if (panel.captured || state.panelSkipped) {
       state.screen = 's5';
       return render();
     }
-    return app.querySelector<HTMLInputElement>('#file-bandeau')?.click();
+    return app.querySelector<HTMLInputElement>('#file-panel')?.click();
   }
 
   if (state.screen === 's5') return void onSubmit();
@@ -544,8 +541,12 @@ function onPrimary(): void {
 
 function onBack(): void {
   const back: Partial<Record<ScreenId, ScreenId>> = {
-    s1: 's0', s2: 's1', s3: 's2', s4: 's3', s4b: 's4',
-    s5: state.answers.ecran === 'oui' ? 's4b' : 's4',
+    s1: 's0',
+    s2: 's1',
+    s3: 's2',
+    s4: 's3',
+    s4b: 's4',
+    s5: state.answers.hasPanel === 'yes' ? 's4b' : 's4',
   };
   const target = back[state.screen];
   if (target) {
@@ -554,7 +555,7 @@ function onBack(): void {
   }
 }
 
-/* ---------- Capture ---------- */
+/* ---------- Photo capture ---------- */
 
 async function onFile(event: Event, slot: PhotoSlot): Promise<void> {
   const input = event.target as HTMLInputElement;
@@ -572,22 +573,25 @@ async function onFile(event: Event, slot: PhotoSlot): Promise<void> {
   try {
     normalized = await normalizePhoto(file);
   } catch {
-    // Format exotique ou décodage impossible : on n'a pas de photo utilisable,
-    // mais on ne renvoie pas le client dans le mur — il peut passer l'étape.
+    // Exotic format or undecodable file: we have no usable photo, but we do
+    // not send the client into a wall — they can skip the step.
     ui.busy = false;
-    ui.verdict = { tone: 'ko', text: "Cette photo n'a pas pu être lue. Réessayez, ou passez cette étape." };
+    ui.verdict = {
+      tone: 'ko',
+      text: "Cette photo n'a pas pu être lue. Réessayez, ou passez cette étape.",
+    };
     return render();
   }
 
   if (ui.previewUrl) URL.revokeObjectURL(ui.previewUrl);
   ui.previewUrl = normalized.previewUrl;
 
-  const attempts = state.dossier!.photos[slot].attempts;
+  const attempts = state.data!.photos[slot].attempts;
   const local = localGuidance(normalized.quality.verdict);
 
-  // Pré-filtre local : on évite un upload et un appel API pour une photo
-  // manifestement inexploitable. Une seule fois — à la deuxième tentative on
-  // envoie quoi qu'il arrive, le vLLM tranchera avec un conseil plus utile.
+  // Local pre-filter: avoids an upload and an API call for an obviously
+  // unusable photo. Once only — on the second attempt we send regardless, and
+  // the model will give more useful advice.
   if (local && attempts === 0) {
     ui.busy = false;
     ui.verdict = { tone: 'ko', text: local };
@@ -609,27 +613,30 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
     await api.uploadPhoto(state.token, slot, blob);
   } catch {
     ui.busy = false;
-    ui.verdict = { tone: 'ko', text: "L'envoi a échoué. Vérifiez votre réseau et réessayez." };
+    ui.verdict = {
+      tone: 'ko',
+      text: "L'envoi a échoué. Vérifiez votre réseau et réessayez.",
+    };
     return render();
   }
 
   ui.verdict = { tone: 'wait', text: 'Vérification de la photo…' };
   render();
 
-  const dossier = await api.waitForAnalysis(state.token, slot);
+  const updated = await api.waitForAnalysis(state.token, slot);
   ui.busy = false;
 
-  if (!dossier) {
-    // Analyse trop lente : on accepte. La photo est stockée, le technicien la
-    // verra. Bloquer le client sur un délai serveur serait absurde.
-    state.dossier!.photos[slot].uploaded = true;
+  if (!updated) {
+    // Analysis too slow: accept. The photo is stored and the technician will
+    // see it. Blocking the client on a server delay would be absurd.
+    state.data!.photos[slot].uploaded = true;
     ui.verdict = { tone: 'ok', text: '✓ Photo reçue.' };
     return render();
   }
 
-  state.dossier = dossier;
-  const analysis = dossier.photos[slot].analysis;
-  const attempts = dossier.photos[slot].attempts;
+  state.data = updated;
+  const analysis = updated.photos[slot].analysis;
+  const attempts = updated.photos[slot].attempts;
 
   if (!analysis) {
     ui.verdict = { tone: 'ok', text: '✓ Photo reçue.' };
@@ -637,10 +644,13 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
   }
 
   if (!analysis.usable && attempts < 2) {
-    ui.verdict = { tone: 'ko', text: analysis.guidance ?? 'Reprenez la photo, s’il vous plaît.' };
+    ui.verdict = {
+      tone: 'ko',
+      text: analysis.guidance ?? 'Reprenez la photo, s’il vous plaît.',
+    };
     ui.keepOffered = true;
-    // `uploaded` reste vrai côté serveur : le bouton propose la reprise, mais
-    // le client peut aussi conserver la photo et poursuivre.
+    // `uploaded` stays true server-side: the button offers a retake, but the
+    // client may also keep the photo and move on.
     return render();
   }
 
@@ -648,7 +658,7 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
   render();
 }
 
-function verdictFor(usable: boolean, guidance: string | null): PhotoUi['verdict'] {
+function verdictFor(usable: boolean, guidance: string | null): CaptureUi['verdict'] {
   if (usable) {
     return {
       tone: 'ok',
@@ -671,7 +681,7 @@ function onKeep(slot: PhotoSlot): void {
     return;
   }
   ui.verdict = { tone: 'ok', text: '✓ Photo conservée.' };
-  state.dossier!.photos[slot].uploaded = true;
+  state.data!.photos[slot].uploaded = true;
   render();
 }
 
@@ -679,15 +689,15 @@ async function onSkip(slot: PhotoSlot): Promise<void> {
   try {
     await api.skipPhoto(state.token, slot);
   } catch {
-    /* le passage reste possible hors ligne */
+    /* skipping stays possible offline */
   }
-  state.dossier!.photos[slot].skipped = true;
+  state.data!.photos[slot].skipped = true;
   state.photoUi[slot].verdict = { tone: 'ok', text: PHOTO_SCREENS[slot].skipConfirm };
   state.photoUi[slot].keepOffered = false;
   render();
 }
 
-/* ---------- Bandeau ---------- */
+/* ---------- Control panel ---------- */
 
 async function onVideo(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
@@ -695,7 +705,7 @@ async function onVideo(event: Event): Promise<void> {
   input.value = '';
   if (!file) return;
 
-  const ui = state.bandeauUi;
+  const ui = state.panelUi;
   ui.busy = true;
   ui.verdict = { tone: 'wait', text: 'Lecture de la vidéo…' };
   render();
@@ -704,8 +714,8 @@ async function onVideo(event: Event): Promise<void> {
   try {
     frames = await extractFrames(file);
   } catch {
-    // Codec exotique, vidéo tronquée, seek refusé : on ne peut rien extraire.
-    // Le client passe l'étape plutôt que de rester coincé dessus.
+    // Exotic codec, truncated video, refused seek: nothing can be extracted.
+    // The client skips the step rather than being stuck on it.
     ui.busy = false;
     ui.verdict = {
       tone: 'ko',
@@ -718,66 +728,69 @@ async function onVideo(event: Event): Promise<void> {
   ui.previewUrl = frames.previewUrl;
 
   try {
-    await api.uploadBandeauFrames(state.token, frames.blobs, (done, total) => {
+    await api.uploadPanelFrames(state.token, frames.blobs, (done, total) => {
       ui.verdict = { tone: 'wait', text: `Envoi ${done} / ${total}…` };
       render();
     });
   } catch {
     ui.busy = false;
-    ui.verdict = { tone: 'ko', text: "L'envoi a échoué. Vérifiez votre réseau et réessayez." };
+    ui.verdict = {
+      tone: 'ko',
+      text: "L'envoi a échoué. Vérifiez votre réseau et réessayez.",
+    };
     return render();
   }
 
   ui.verdict = { tone: 'wait', text: 'Lecture du bandeau…' };
   render();
 
-  const dossier = await api.waitForBandeau(state.token);
+  const updated = await api.waitForPanel(state.token);
   ui.busy = false;
 
-  // L'envoi de la vidéo ne démarre qu'ici, une fois le verdict obtenu. Le
-  // lancer plus tôt ferait concurrencer vingt mégaoctets et les requêtes de
-  // sondage sur le même lien montant, et retarderait précisément ce que le
-  // client attend à l'écran.
+  // The video upload only starts here, once the verdict is in. Starting it
+  // earlier would put twenty megabytes in competition with the polling
+  // requests on the same uplink, delaying exactly what the client is waiting
+  // for on screen.
   startVideoUpload(file);
 
-  if (!dossier) {
-    state.dossier!.bandeau.captured = true;
+  if (!updated) {
+    state.data!.panel.captured = true;
     ui.verdict = { tone: 'ok', text: '✓ Images reçues.' };
     return render();
   }
 
-  state.dossier = dossier;
-  const a = dossier.bandeau.analysis;
+  state.data = updated;
+  const analysis = updated.panel.analysis;
 
-  if (a && !a.usable && a.guidance) {
-    ui.verdict = { tone: 'ko', text: a.guidance };
+  if (analysis && !analysis.usable && analysis.guidance) {
+    ui.verdict = { tone: 'ko', text: analysis.guidance };
     return render();
   }
 
   ui.verdict = {
     tone: 'ok',
-    text: a?.code
-      ? `✓ Code ${a.code} relevé sur le bandeau.`
+    text: analysis?.code
+      ? `✓ Code ${analysis.code} relevé sur le bandeau.`
       : '✓ Bandeau enregistré.',
   };
   render();
 }
 
 /**
- * Conserve l'enregistrement d'origine pour vérification humaine.
+ * Keep the original recording for human review.
  *
- * Rien n'attend cette promesse : ni le bouton « Continuer », ni la soumission.
- * Un échec est signalé sans dramatisation — les images extraites portent déjà
- * l'information nécessaire au diagnostic.
+ * Nothing awaits this promise: not the "Continue" button, not the submission.
+ * A failure is reported without drama — the extracted frames already carry the
+ * information the diagnosis needs.
  */
 function startVideoUpload(file: File): void {
   state.video.abort?.();
   state.video = { active: true, ratio: 0, lastPct: -1, failed: false, abort: null };
 
-  const { done, abort } = api.uploadBandeauVideo(state.token, file, (ratio) => {
+  const { done, abort } = api.uploadPanelVideo(state.token, file, (ratio) => {
     state.video.ratio = ratio;
-    // Un rendu par point de pourcentage suffit : rafraîchir à chaque événement
-    // de progression reconstruirait le DOM des dizaines de fois par seconde.
+    // One render per percentage point is enough: refreshing on every progress
+    // event would rebuild the DOM dozens of times a second.
     const pct = Math.round(ratio * 100);
     if (pct !== state.video.lastPct) {
       state.video.lastPct = pct;
@@ -789,11 +802,11 @@ function startVideoUpload(file: File): void {
   void done
     .then(() => {
       state.video.active = false;
-      if (state.dossier) state.dossier.bandeau.videoUploaded = true;
+      if (state.data) state.data.panel.videoUploaded = true;
     })
     .catch((err) => {
       state.video.active = false;
-      // Une annulation volontaire n'est pas un échec à signaler.
+      // A deliberate cancellation is not a failure worth reporting.
       state.video.failed = !(err instanceof api.ApiError && err.code === 'aborted');
     })
     .finally(() => {
@@ -802,21 +815,21 @@ function startVideoUpload(file: File): void {
     });
 }
 
-function onSkipBandeau(): void {
-  state.bandeauSkipped = true;
-  state.bandeauUi.verdict = { tone: 'ok', text: BANDEAU_SCREEN.skipConfirm };
+function onSkipPanel(): void {
+  state.panelSkipped = true;
+  state.panelUi.verdict = { tone: 'ok', text: PANEL_SCREEN.skipConfirm };
   render();
 }
 
-/* ---------- Soumission ---------- */
+/* ---------- Submission ---------- */
 
 async function onSubmit(): Promise<void> {
   state.submitting = true;
   render();
   try {
     const res = await api.submit(state.token);
-    state.diagnostic = res.diagnostic;
-    state.dossier = await api.getDossier(state.token);
+    state.diagnosis = res.diagnosis;
+    state.data = await api.getCase(state.token);
     state.screen = 's6';
   } catch {
     state.screen = 's6';
@@ -827,7 +840,7 @@ async function onSubmit(): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Divers                                                              */
+/* Misc                                                                */
 /* ------------------------------------------------------------------ */
 
 function escapeHtml(s: string): string {
@@ -839,9 +852,9 @@ function escapeHtml(s: string): string {
 }
 
 /**
- * Lien mort ou expiré. Le numéro d'astreinte venant du dossier, il est
- * précisément indisponible ici : on renvoie vers le site plutôt que d'inscrire
- * en dur une valeur qui divergerait de celle du Worker.
+ * Dead or expired link. The on-call number comes from the case, so it is
+ * precisely unavailable here: point at the website rather than hard-coding a
+ * value that would drift from the Worker's.
  */
 function renderFatal(message: string): void {
   app.innerHTML = `

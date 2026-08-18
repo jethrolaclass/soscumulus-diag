@@ -99,8 +99,15 @@ conformité, pas une approximation d'interface.
 
 ## Conventions
 
-- Français pour tout ce que lit un humain : commentaires, libellés, prompts.
-- Anglais pour le code : noms de symboles, clés JSON, champs de schéma.
+- **Anglais pour tout le code, sans exception** : identifiants, commentaires,
+  clés JSON, colonnes SQL, routes d'API, valeurs d'énumération, messages
+  d'erreur internes.
+- **Français uniquement pour ce que lit un humain hors de l'équipe** : libellés
+  d'interface, textes d'e-mail, message SMS, et les prompts envoyés au modèle
+  — celui-ci doit rendre au client des consignes en français, et le vocabulaire
+  métier (étiquette signalétique, groupe de sécurité, bandeau) n'a pas
+  d'équivalent net en anglais.
+- Cette documentation reste en français : elle s'adresse à l'équipe.
 - Pas de framework front. Le bundle fait ~7 Ko gzip, c'est un objectif, pas un
   accident.
 - Les commentaires expliquent **pourquoi**, jamais **quoi**.

@@ -1,20 +1,19 @@
 /**
- * Signature HMAC-SHA256 via WebCrypto — tokens de dossier et URL d'image.
+ * HMAC-SHA256 signing via WebCrypto — case tokens and image URLs.
  *
- * Les photos ne sont jamais exposées sur un bucket public : elles sont servies
- * par une route du Worker derrière une URL signée à durée courte, que l'API
- * Anthropic va chercher elle-même. Le Worker se contente de relayer le flux R2,
- * ce qui ne consomme pratiquement pas de CPU — contrairement à un encodage
- * base64, qui dépasserait à lui seul le quota du plan gratuit.
+ * Photos are never exposed on a public bucket: they are served by a Worker
+ * route behind a short-lived signed URL that the Anthropic API fetches itself.
+ * The Worker only relays the R2 stream, which costs almost no CPU — unlike a
+ * base64 encoding, which would blow the free plan's budget on its own.
  */
 
 const encoder = new TextEncoder();
 
 async function hmacKey(secret: string): Promise<CryptoKey> {
-  // WebCrypto rejette une clé HMAC de longueur nulle par une erreur opaque.
-  // Un secret absent est une erreur de configuration : la nommer évite de
-  // chercher un bug de signature là où il manque un `wrangler secret put`.
-  if (!secret) throw new Error('SIGNING_KEY absente ou vide.');
+  // WebCrypto rejects a zero-length HMAC key with an opaque error. A missing
+  // secret is a configuration mistake: naming it avoids hunting for a signing
+  // bug where a `wrangler secret put` is what is missing.
+  if (!secret) throw new Error('SIGNING_KEY is missing or empty.');
   return crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -36,7 +35,7 @@ export async function sign(secret: string, payload: string): Promise<string> {
   return base64url(await crypto.subtle.sign('HMAC', key, encoder.encode(payload)));
 }
 
-/** Comparaison à temps constant : `===` sur des signatures fuit par timing. */
+/** Constant-time comparison: `===` on signatures leaks through timing. */
 export function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -53,34 +52,34 @@ export async function verify(
 }
 
 /* ------------------------------------------------------------------ */
-/* Token de dossier                                                    */
+/* Case token                                                          */
 /* ------------------------------------------------------------------ */
 
 /**
- * Identifiant opaque de dossier. Aléatoire, jamais dérivé de la référence
- * client : `SC-0024` dans une URL s'énumère, et donnerait accès aux dossiers
- * voisins. La référence lisible reste affichée dans l'interface, pas routée.
+ * Opaque case identifier. Random, never derived from the client reference:
+ * `SC-0024` in a URL can be enumerated, which would expose neighbouring cases.
+ * The readable reference stays on screen, never in a route.
  */
-export function newDossierToken(): string {
-  // 16 octets, soit 128 bits — au-delà de toute énumération, et dix caractères
-  // de moins qu'avec 24 octets. Sur un SMS facturé par tranche de 160
-  // caractères, la longueur de l'URL n'est pas un détail cosmétique.
+export function newCaseToken(): string {
+  // 16 bytes, i.e. 128 bits — beyond any enumeration, and ten characters
+  // shorter than 24 bytes. On a text billed per 160 characters, URL length is
+  // not a cosmetic detail.
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return base64url(bytes.buffer);
 }
 
 /* ------------------------------------------------------------------ */
-/* URL d'image signée                                                  */
+/* Signed image URL                                                    */
 /* ------------------------------------------------------------------ */
 
-/** Durée de vie par défaut : le temps d'un appel vision, pas plus. */
+/** Default lifetime: the duration of one vision call, no more. */
 const IMAGE_URL_TTL_S = 300;
 
 /**
- * @param ttlSeconds Rallonger uniquement pour la fiche d'intervention, dont le
- * destinataire est un technicien qui la consultera plus tard. Ne jamais aligner
- * cette durée sur autre chose que la rétention du dossier.
+ * @param ttlSeconds Extend only for the intervention report, whose reader is a
+ * technician consulting it later. Never align this duration with anything but
+ * the case retention.
  */
 export async function signedImageUrl(
   secret: string,
@@ -102,9 +101,9 @@ export async function verifyImageUrl(
   exp: string | null,
   sig: string | null,
 ): Promise<boolean> {
-  // La vérification refuse toujours plutôt que de lever : cette route est
-  // exposée publiquement, et une erreur interne y renseignerait un attaquant
-  // sur l'état de la configuration.
+  // Verification always denies rather than throwing: this route is publicly
+  // exposed, and an internal error would tell an attacker about the state of
+  // the configuration.
   if (!secret || !exp || !sig) return false;
   const expiry = Number(exp);
   if (!Number.isFinite(expiry) || expiry < Date.now() / 1000) return false;

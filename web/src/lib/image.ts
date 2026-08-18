@@ -1,52 +1,52 @@
 /**
- * Normalisation et contrôle qualité d'une photo, côté client.
+ * Client-side normalisation and quality control of a photo.
  *
- * Trois problèmes réglés en un seul passage canvas :
- *  - HEIC : les iPhone shootent en HEIC, que l'API Claude n'accepte pas.
- *    Safari sait le décoder nativement vers un ImageBitmap, donc le
- *    ré-encodage JPEG règle le format sans dépendance externe.
- *  - Orientation EXIF : `imageOrientation: 'from-image'` applique la rotation
- *    avant dessin. Sans ça, une photo prise en portrait arrive couchée.
- *  - Poids : 4 Mo au sortir du capteur, ~300 Ko après. Déterminant sur un
- *    réseau de cave, et plafonne les tokens image facturés.
+ * Three problems solved in a single canvas pass:
+ *  - HEIC: iPhones shoot HEIC, which the Claude API does not accept. Safari
+ *    decodes it natively into an ImageBitmap, so re-encoding to JPEG fixes the
+ *    format with no external dependency.
+ *  - EXIF orientation: `imageOrientation: 'from-image'` applies the rotation
+ *    before drawing. Without it, a portrait shot arrives lying on its side.
+ *  - Weight: 4 MB off the sensor, ~300 KB after. Decisive on a basement
+ *    network, and it caps the billed image tokens.
  *
- * Le ré-encodage supprime au passage les EXIF, dont le GPS : on ne veut pas
- * transporter les coordonnées du domicile du client.
+ * Re-encoding also strips EXIF, GPS included: we do not want to carry the
+ * coordinates of the client's home.
  */
 
-/** Grand côté cible. Aligné sur le palier de tokens image de l'API. */
+/** Target long edge. Aligned with the API's image-token tier. */
 const MAX_EDGE = 1568;
 const JPEG_QUALITY = 0.85;
 
-/** Taille du crop central analysé pour la netteté. */
+/** Size of the centre crop analysed for sharpness. */
 const SHARPNESS_CROP = 640;
 
 export interface NormalizedPhoto {
   blob: Blob;
   width: number;
   height: number;
-  /** URL objet pour l'aperçu. À révoquer par l'appelant. */
+  /** Object URL for the preview. The caller must revoke it. */
   previewUrl: string;
   quality: LocalQuality;
 }
 
 export interface LocalQuality {
-  /** Variance du Laplacien. Plus c'est haut, plus c'est net. */
+  /** Variance of the Laplacian. Higher means sharper. */
   sharpness: number;
-  /** Luminance moyenne 0-255. */
+  /** Mean luminance, 0-255. */
   brightness: number;
-  /** Part de pixels saturés à blanc — révèle un reflet ou un flash trop près. */
+  /** Share of pixels blown to white — reveals glare or a too-close flash. */
   blownOut: number;
-  verdict: 'ok' | 'floue' | 'sombre' | 'surexposee';
+  verdict: 'ok' | 'blurry' | 'dark' | 'overexposed';
 }
 
 /*
- * Seuils délibérément permissifs : ce contrôle n'est qu'un pré-filtre destiné à
- * éviter un upload et un appel API pour une photo manifestement inutilisable
- * (doigt sur l'objectif, cave non éclairée). Le juge de la qualité réelle est
- * le vLLM, seul capable de dire « nette mais trop loin pour lire l'étiquette ».
- * Ne pas durcir ces valeurs sans les avoir recalibrées sur de vraies photos :
- * la variance du Laplacien dépend fortement du capteur.
+ * Deliberately permissive thresholds: this check is only a pre-filter meant to
+ * avoid an upload and an API call for an obviously unusable photo (finger over
+ * the lens, unlit basement). The real judge of quality is the model, the only
+ * one able to say "sharp but too far to read the label". Do not tighten these
+ * values without recalibrating them on real photos: the variance of the
+ * Laplacian depends heavily on the sensor.
  */
 const THRESHOLDS = {
   sharpness: 90,
@@ -55,8 +55,8 @@ const THRESHOLDS = {
 } as const;
 
 /**
- * Décode, redresse, redimensionne et ré-encode en JPEG.
- * Lève si le fichier n'est pas décodable par le navigateur.
+ * Decode, straighten, resize and re-encode to JPEG.
+ * Throws when the browser cannot decode the file.
  */
 export async function normalizePhoto(file: File): Promise<NormalizedPhoto> {
   const bitmap = await decode(file);
@@ -86,12 +86,12 @@ export async function normalizePhoto(file: File): Promise<NormalizedPhoto> {
 }
 
 async function decode(file: File): Promise<ImageBitmap> {
-  // `from-image` applique l'orientation EXIF au décodage. Sans cette option,
-  // Chrome et Safari divergent et une photo sur deux arrive couchée.
+  // `from-image` applies EXIF orientation at decode time. Without this option
+  // Chrome and Safari diverge and every other photo arrives sideways.
   try {
     return await createImageBitmap(file, { imageOrientation: 'from-image' });
   } catch {
-    // Repli pour les navigateurs sans support des options de createImageBitmap.
+    // Fallback for browsers without createImageBitmap options support.
     return await decodeViaImgElement(file);
   }
 }
@@ -128,10 +128,10 @@ function toJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
 }
 
 /**
- * Mesure la netteté sur un crop central, jamais sur l'image réduite entière :
- * réduire une image la floute, donc mesurer après réduction revient surtout à
- * mesurer l'artefact du redimensionnement. Le sujet utile (étiquette, fuite)
- * est par ailleurs presque toujours au centre du cadre.
+ * Measure sharpness on a centre crop, never on the whole resized image:
+ * shrinking an image blurs it, so measuring after the resize mostly measures
+ * the resampling artefact. The subject of interest (label, leak) also sits
+ * almost always at the centre of the frame.
  */
 function measure(
   ctx: CanvasRenderingContext2D,
@@ -156,9 +156,9 @@ function measure(
   const brightness = sum / gray.length;
   const blownOut = blown / gray.length;
 
-  // Variance du Laplacien (Pech-Pacheco et al.) — la moyenne des valeurs
-  // absolues, utilisée par le prototype, sature sur les images texturées et
-  // ne discrimine pas le flou de mise au point.
+  // Variance of the Laplacian (Pech-Pacheco et al.) — the mean absolute value
+  // used by the prototype saturates on textured images and does not
+  // discriminate focus blur.
   let lapSum = 0;
   let lapSumSq = 0;
   let count = 0;
@@ -176,21 +176,21 @@ function measure(
   const sharpness = lapSumSq / count - mean * mean;
 
   let verdict: LocalQuality['verdict'] = 'ok';
-  if (brightness < THRESHOLDS.brightnessLow) verdict = 'sombre';
-  else if (blownOut > THRESHOLDS.blownOut) verdict = 'surexposee';
-  else if (sharpness < THRESHOLDS.sharpness) verdict = 'floue';
+  if (brightness < THRESHOLDS.brightnessLow) verdict = 'dark';
+  else if (blownOut > THRESHOLDS.blownOut) verdict = 'overexposed';
+  else if (sharpness < THRESHOLDS.sharpness) verdict = 'blurry';
 
   return { sharpness, brightness, blownOut, verdict };
 }
 
-/** Message client pour un rejet local. Le vLLM produira un message plus fin. */
+/** Client message for a local rejection. The model produces a finer one. */
 export function localGuidance(verdict: LocalQuality['verdict']): string | null {
   switch (verdict) {
-    case 'sombre':
+    case 'dark':
       return "Un peu sombre — allumez la lumière ou approchez le téléphone, puis réessayez.";
-    case 'floue':
+    case 'blurry':
       return "Un peu floue — tenez le téléphone bien immobile une seconde, puis réessayez.";
-    case 'surexposee':
+    case 'overexposed':
       return "Trop de reflet — reculez un peu ou décalez-vous sur le côté, puis réessayez.";
     case 'ok':
       return null;

@@ -15,13 +15,13 @@ routes = [
 ]
 
 # Variables non sensibles. Les secrets passent par `wrangler secret put` :
-#   ANTHROPIC_API_KEY, SIGNING_KEY, SMS_API_KEY, LEAD_SECRET, FICHE_SECRET
+#   ANTHROPIC_API_KEY, SIGNING_KEY, SMS_API_KEY, LEAD_SECRET, REPORT_SECRET
 [vars]
 PUBLIC_API_URL    = "https://diag-api.soscumulus.fr"
 PUBLIC_WEB_URL    = "https://diag.soscumulus.fr"
-FICHE_WEBHOOK_URL = ""
+REPORT_WEBHOOK_URL = ""
 SMS_SENDER        = "SOSCumulus"
-URGENCE_TEL       = "+33621560983"
+EMERGENCY_PHONE   = "+33621560983"
 # Phase de test : seuls ces numéros reçoivent réellement un SMS. Les autres
 # dossiers sont créés normalement et leur lien reste valide, mais rien ne part.
 # ‼️ VIDER CETTE VARIABLE POUR LA MISE EN SERVICE.
