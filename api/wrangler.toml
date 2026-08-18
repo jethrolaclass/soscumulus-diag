@@ -10,7 +10,7 @@ PUBLIC_API_URL    = "https://soscumulus-diag-api.maxime-peron.workers.dev"
 PUBLIC_WEB_URL    = "https://diag.soscumulus.fr"
 FICHE_WEBHOOK_URL = ""
 SMS_SENDER        = "SOSCumulus"
-URGENCE_TEL       = "+33000000000"
+URGENCE_TEL       = "+33621560983"
 LOG_USAGE         = "true"
 
 [[d1_databases]]

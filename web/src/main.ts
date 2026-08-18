@@ -235,7 +235,7 @@ function stopScreen(): string {
         <li>Ne touchez pas aux fils. Éloignez ce qui est électrique de l'eau.</li>
         <li>Odeur de gaz : ouvrez les fenêtres, ne touchez à aucun interrupteur, sortez et appelez le 18.</li>
       </ol>
-      <a class="call" href="tel:${escapeHtml(URGENCE_TEL)}">📞 Nous appeler maintenant</a>
+      <a class="call" href="tel:${escapeHtml(state.dossier!.urgenceTel)}">📞 Nous appeler maintenant</a>
     </div>
     <p class="hint" style="margin-top:12px">Un technicien SOS Cumulus a été alerté et vous rappelle au numéro indiqué.</p>
   `;
@@ -830,8 +830,6 @@ async function onSubmit(): Promise<void> {
 /* Divers                                                              */
 /* ------------------------------------------------------------------ */
 
-const URGENCE_TEL = '+33000000000';
-
 function escapeHtml(s: string): string {
   return s.replace(
     /[&<>"']/g,
@@ -840,13 +838,18 @@ function escapeHtml(s: string): string {
   );
 }
 
+/**
+ * Lien mort ou expiré. Le numéro d'astreinte venant du dossier, il est
+ * précisément indisponible ici : on renvoie vers le site plutôt que d'inscrire
+ * en dur une valeur qui divergerait de celle du Worker.
+ */
 function renderFatal(message: string): void {
   app.innerHTML = `
     <header class="top"><div class="brand"><div class="name">SOS Cumulus <span>+</span></div></div></header>
     <main class="body">
       <h1>Lien indisponible</h1>
       <p class="lead">${escapeHtml(message)}</p>
-      <a class="call" href="tel:${escapeHtml(URGENCE_TEL)}">📞 Nous appeler</a>
+      <a class="call" href="https://soscumulus.fr">Nous contacter sur soscumulus.fr</a>
     </main>`;
 }
 

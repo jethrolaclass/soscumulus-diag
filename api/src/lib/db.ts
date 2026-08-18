@@ -162,6 +162,7 @@ export async function getDossier(
     diagnostic: row.diagnostic
       ? (JSON.parse(row.diagnostic) as Diagnostic)
       : null,
+    urgenceTel: env.URGENCE_TEL,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
   };

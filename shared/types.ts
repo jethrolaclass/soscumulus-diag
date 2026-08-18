@@ -71,6 +71,12 @@ export interface Dossier {
   /** Renseigné seulement si le client a déclaré un écran ou des voyants. */
   bandeau: BandeauState;
   diagnostic: Diagnostic | null;
+  /**
+   * Numéro d'astreinte affiché sur l'écran d'arrêt sécurité. Servi par l'API
+   * plutôt que compilé dans le front : le changer ne doit pas demander un
+   * rebuild, et surtout pas laisser deux valeurs diverger.
+   */
+  urgenceTel: string;
   createdAt: string;
   expiresAt: string;
 }
