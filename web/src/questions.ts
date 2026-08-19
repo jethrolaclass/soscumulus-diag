@@ -123,6 +123,17 @@ export interface PhotoScreen {
   /** Offered under the button — never a dead end for the client. */
   skipLabel: string;
   skipConfirm: string;
+  /**
+   * Reference shot. Showing what a good photo looks like does more than any
+   * written instruction — these are real client photos, and saying so is part
+   * of why they reassure.
+   */
+  example: {
+    src: string;
+    caption: string;
+    /** `object-position`, so the useful area survives the crop. */
+    focus: string;
+  };
 }
 
 export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
@@ -134,6 +145,12 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
     skipLabel: "Je ne trouve pas l'étiquette",
     skipConfirm:
       "Pas de souci — photographiez alors le dessus ou le capot, et notre technicien s'en occupera.",
+    example: {
+      src: '/examples/nameplate.jpg',
+      caption:
+        "Net, bien éclairé, l'étiquette remplit l'image. (Vraie photo client.)",
+      focus: '50% 55%',
+    },
   },
   2: {
     slot: 2,
@@ -142,6 +159,12 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
     lead: "Reculez de deux ou trois pas pour qu'on voie <b>l'appareil entier</b> et ce qu'il y a autour.",
     skipLabel: 'Je ne peux pas reculer davantage',
     skipConfirm: 'Noté — le technicien tiendra compte de la place disponible.',
+    example: {
+      src: '/examples/overview.jpg',
+      caption:
+        "Appareil entier, murs et plafond visibles — on voit où et comment il est posé. (Vraie photo client.)",
+      focus: '50% 45%',
+    },
   },
   3: {
     slot: 3,
@@ -150,6 +173,12 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
     lead: "Cadrez l'endroit où vous voyez de l'eau : au sol, sur un tuyau ou sur l'appareil.",
     skipLabel: 'Rien ne coule pour le moment',
     skipConfirm: "Noté : rien ne coule pour l'instant.",
+    example: {
+      src: '/examples/leak.jpg',
+      caption:
+        "Le dessous, la bride et les raccords — là où l'eau se voit. (Vraie photo client.)",
+      focus: '50% 60%',
+    },
   },
 };
 

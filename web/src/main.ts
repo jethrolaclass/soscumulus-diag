@@ -251,7 +251,18 @@ function photoScreen(slot: PhotoSlot): string {
     <p class="eyebrow">${cfg.eyebrow}</p>
     <h1>${cfg.title}</h1>
     <p class="lead">${cfg.lead}</p>
-    ${ui.previewUrl ? `<div class="shot"><img src="${ui.previewUrl}" alt="Votre photo"></div>` : ''}
+    ${
+      // The example steps aside once the client has their own shot: comparing
+      // the two is useful, but their photo is what they came to look at.
+      ui.previewUrl
+        ? `<div class="shot"><img src="${ui.previewUrl}" alt="Votre photo"></div>`
+        : `<figure class="example">
+             <img src="${cfg.example.src}" alt="Exemple de photo attendue"
+                  style="object-position:${cfg.example.focus}" loading="eager">
+             <span class="tag">✓ Comme ça</span>
+             <figcaption>${escapeHtml(cfg.example.caption)}</figcaption>
+           </figure>`
+    }
     ${verdictHtml(ui)}
     ${ui.keepOffered ? `<button class="skip" data-keep="${slot}">Garder cette photo quand même</button>` : ''}
     ${p.skipped ? '' : `<div><button class="skip" data-skip="${slot}">${cfg.skipLabel}</button></div>`}
