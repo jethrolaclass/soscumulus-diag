@@ -20,7 +20,9 @@ routes = [
 PUBLIC_API_URL    = "https://diag-api.soscumulus.fr"
 PUBLIC_WEB_URL    = "https://diag.soscumulus.fr"
 REPORT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwbiwEGuzsHFBcO95SOail-bh7kaqvbE8FHLq87b8gRJ9Eus1tFIsbma_LGgJt7Kj5u/exec"
-SMS_SENDER        = "SOSCumulus"
+# Expéditeur alphanumérique : 11 caractères maximum, espace compris — et
+# « SOS Cumulus » en fait exactement 11. Rien à ajouter sans retirer ailleurs.
+SMS_SENDER        = "SOS Cumulus"
 EMERGENCY_PHONE   = "+33621560983"
 # Phase de test : seuls ces numéros reçoivent réellement un SMS. Les autres
 # dossiers sont créés normalement et leur lien reste valide, mais rien ne part.
