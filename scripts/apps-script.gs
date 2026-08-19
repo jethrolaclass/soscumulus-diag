@@ -55,6 +55,26 @@ var STATUSES = [
 ];
 var DEFAULT_STATUS = STATUSES[0].label; // "À rappeler"
 
+// Enumerations travel in English — they are identifiers. This file is where
+// they meet a human: a technician reading "within_24h" on an intervention
+// sheet is a technician reading a bug.
+var LABELS = {
+  urgency: {
+    immediate: "Immédiate",
+    within_24h: "Sous 24 h",
+    within_week: "Sous une semaine",
+    scheduled: "À planifier",
+  },
+  confidence: { low: "Faible", medium: "Moyenne", high: "Élevée" },
+  occupancy: { owner: "Propriétaire", tenant: "Locataire", manager: "Gestionnaire" },
+  access: {
+    easy: "Facile d'accès",
+    cupboard: "Placard ou coffrage",
+    hatch: "Faux plafond ou trappe",
+    basement: "Cave ou sous-sol",
+  },
+};
+
 // Secrets and ids live in Script Properties, never in this file.
 var P = PropertiesService.getScriptProperties();
 
@@ -232,18 +252,27 @@ function buildReport(d) {
     "{{SYNTHESE}}": diag.summary || "",
     "{{CAUSE}}": diag.likelyCause || "",
     "{{ACTION}}": diag.recommendedAction || "",
-    "{{URGENCE}}": diag.urgency || "",
+    "{{URGENCE}}": LABELS.urgency[diag.urgency] || diag.urgency || "",
     "{{PIECES}}": (diag.partsLikely || []).join(", ") || "À confirmer",
     "{{DUREE}}": diag.estimatedDurationMin ? diag.estimatedDurationMin + " min" : "À estimer",
-    "{{CONFIANCE}}": diag.confidence || "",
+    "{{CONFIANCE}}": LABELS.confidence[diag.confidence] || diag.confidence || "",
     "{{VISITE}}": diag.needsOnSite ? "Oui" : "Non",
     "{{NOTES}}": diag.technicianNotes || "",
     "{{PLAQUE}}": nameplateSummary_(nameplate),
     "{{BANDEAU}}": panelSummary_(d.panel),
+    // Fine-grained nameplate fields: the paper form has a box per marking.
+    "{{MARQUE}}": nameplate.brand || "",
+    "{{MODELE}}": nameplate.model || "",
+    "{{CAPACITE}}": nameplate.capacityLiters ? nameplate.capacityLiters + " L" : "",
+    "{{SERIE}}": [nameplate.serial, nameplate.manufactureCode, nameplate.manufactureDate]
+      .filter(String).join(" · "),
+    "{{OCCUPANT}}": LABELS.occupancy[(d.answers || {}).occupancy] || "",
+    "{{ECRAN}}": (d.answers || {}).hasPanel === "yes" ? "Oui"
+      : (d.answers || {}).hasPanel === "no" ? "Non" : "",
     // A Doc cannot embed a video, so this stays a link. It expires with the
     // file, at seven days — the Doc remains readable without it afterwards.
     "{{VIDEO}}": d.panelVideoUrl || "Aucune vidéo",
-    "{{ACCES}}": (d.answers && d.answers.access) || "",
+    "{{ACCES}}": LABELS.access[(d.answers || {}).access] || "",
     "{{DISPO}}": availabilityText_(d.answers && d.answers.availability),
   };
   for (var key in fields) body.replaceText(escapeRegex_(key), fields[key]);

@@ -215,16 +215,26 @@ Propriétés du script à renseigner (Paramètres du projet → Propriétés) :
 Puis relancer `setupStatusColumn` une fois (la colonne G accueille désormais le
 lien de diagnostic), et créer le déclencheur mensuel sur `purgeArchives`.
 
-Le modèle Docs doit contenir les balises `{{REF}}`, `{{TEL}}`, `{{VILLE}}`,
-`{{PROBLEME}}`, `{{DATE}}`, `{{APPAREIL}}`, `{{SYNTHESE}}`, `{{CAUSE}}`,
-`{{ACTION}}`, `{{URGENCE}}`, `{{PIECES}}`, `{{DUREE}}`, `{{CONFIANCE}}`,
-`{{VISITE}}`, `{{NOTES}}`, `{{PLAQUE}}`, `{{BANDEAU}}`, `{{VIDEO}}`,
-`{{ACCES}}`, `{{DISPO}}` et `{{PHOTOS}}`.
+Balises disponibles dans le modèle Docs — toutes facultatives, une balise
+absente n'est simplement pas remplacée :
 
-`{{APPAREIL}}` tient sur une ligne d'en-tête — marque, référence, capacité.
+| Dossier | Client | Appareil | Diagnostic |
+|---|---|---|---|
+| `{{REF}}` `{{DATE}}` | `{{TEL}}` `{{VILLE}}` | `{{MARQUE}}` `{{MODELE}}` | `{{SYNTHESE}}` `{{CAUSE}}` |
+| `{{PROBLEME}}` | `{{OCCUPANT}}` `{{ACCES}}` | `{{CAPACITE}}` `{{SERIE}}` | `{{ACTION}}` `{{PIECES}}` |
+| | `{{DISPO}}` | `{{APPAREIL}}` `{{PLAQUE}}` | `{{URGENCE}}` `{{CONFIANCE}}` |
+| | | `{{ECRAN}}` `{{BANDEAU}}` `{{VIDEO}}` | `{{VISITE}}` `{{DUREE}}` `{{NOTES}}` |
+
+`{{APPAREIL}}` tient sur une ligne d'en-tête — marque, référence, capacité —
+là où `{{MARQUE}}`, `{{MODELE}}` et `{{CAPACITE}}` ont chacune leur case.
 `{{PLAQUE}}` déplie tout ce qui a été lu sur l'étiquette, une mention par
 ligne : c'est là que le technicien lit le code-barres, la protection de cuve
 et la tension avant de charger le camion.
+
+`{{PHOTOS}}`, seule dans son paragraphe, est remplacée par les photos du
+client incorporées au document. Le modèle en service ne l'utilise pas — les
+photos partent sur le WhatsApp du dossier — mais elles restent archivées en
+fichiers séparés dans le dossier Drive.
 
 ## Rejouer un dossier en test
 
