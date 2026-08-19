@@ -69,11 +69,13 @@ body {
 }
 .slot img { width: 100%; height: 100%; object-fit: cover; }
 .slot.done { border: 1.5px solid var(--orange-2); }
+/* The tick is drawn, not typeset: the "✓" glyph sits low and right of its em
+   box in DM Sans, so flex centring put it visibly off-centre in the disc. */
 .slot.done::after {
-  content: "✓"; position: absolute; right: 5px; bottom: 3px;
-  background: var(--ok); color: #fff; width: 18px; height: 18px;
-  border-radius: 50%; font-size: 12px; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
+  content: ""; position: absolute; right: 5px; bottom: 3px;
+  background-color: var(--ok); width: 18px; height: 18px; border-radius: 50%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.2 4.7 9 10 3.2' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: center; background-size: 11px 11px;
 }
 .slot.active { border-color: var(--orange-2); border-style: solid; box-shadow: 0 0 0 3px rgba(232, 85, 47, .35); color: #fff; }
 .progress { height: 4px; background: rgba(255, 255, 255, .15); border-radius: 4px; margin-top: 12px; overflow: hidden; }
@@ -132,17 +134,20 @@ p { margin: 0 0 12px; }
 /* ---------- Photos ---------- */
 
 /* Verdict laid over the photo: on a phone the vertical space it used to take
-   pushed the retake button below the fold. */
+   pushed the retake button below the fold.
+   Flat band, translucent so the photo stays readable underneath. The alpha is
+   on the background alone — an `opacity` on the block would fade the text with
+   it, and this text is read at arm's length in a badly lit cellar. */
 .shot { position: relative; }
 .shot-verdict {
   position: absolute; left: 0; right: 0; bottom: 0;
-  display: flex; align-items: center; gap: 10px;
-  padding: 26px 14px 12px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 12px 14px; text-align: center;
   font-size: 15px; font-weight: 600; color: #fff;
-  background: linear-gradient(180deg, rgba(10, 22, 40, 0), rgba(10, 22, 40, .82) 55%);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  background: rgba(15, 45, 92, .82);
 }
-.shot-verdict.ko { background: linear-gradient(180deg, rgba(90, 12, 12, 0), rgba(120, 16, 16, .88) 55%); }
+.shot-verdict.ok { background: rgba(27, 127, 75, .82); }
+.shot-verdict.ko { background: rgba(198, 40, 40, .82); }
 .spinner.light { border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
 
 /*
