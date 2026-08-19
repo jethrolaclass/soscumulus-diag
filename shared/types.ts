@@ -11,6 +11,22 @@ export const PHOTO_SLOTS: Record<PhotoSlot, { key: string; label: string }> = {
   3: { key: 'leak', label: 'Zone de fuite' },
 };
 
+/**
+ * Slots whose photo is sent to the model.
+ *
+ * Only the nameplate is read: it is the one shot carrying information a human
+ * cannot reconstruct later — a reference, a barcode, a capacity. The other two
+ * are stored, archived and looked at by the technician, who reads clearance and
+ * a leak better from the photo than we can describe them back to him.
+ *
+ * Re-enabling one is this list plus nothing else: the prompts and schemas for
+ * the other slots are still in place.
+ */
+export const ANALYZED_PHOTO_SLOTS: readonly PhotoSlot[] = [1];
+
+export const isAnalyzedSlot = (slot: PhotoSlot): boolean =>
+  ANALYZED_PHOTO_SLOTS.includes(slot);
+
 /* ------------------------------------------------------------------ */
 /* Safety — assessed before anything else                              */
 /* ------------------------------------------------------------------ */

@@ -114,6 +114,11 @@ Sur le champ "guidance" : il est lu tel quel par le client, sur son téléphone,
 
 Sur le champ "usable" : il commande le parcours. true signifie qu'un technicien peut travailler avec cette photo, même imparfaite. Ne mets false que si la photo est réellement inexploitable, car cela oblige le client à recommencer. Dans le doute, mets true et signale la réserve dans "problems".`;
 
+/**
+ * One prompt per slot, though only the slots listed in `ANALYZED_PHOTO_SLOTS`
+ * are actually sent today. The other two are kept ready rather than deleted:
+ * turning them back on is a one-line change to that list.
+ */
 const SLOT_PROMPTS: Record<PhotoSlot, string> = {
   1: `Photo demandée : l'étiquette signalétique du chauffe-eau, celle qui porte la marque, la référence et les caractéristiques électriques.
 
@@ -163,6 +168,10 @@ const SYNTHESIS_PROMPT = `Tu reçois l'ensemble d'un dossier : les réponses du 
 Ce diagnostic est lu par un technicien qui va charger son camion. Sois utile à cette décision précise : quelle pièce emporter, combien de temps prévoir, et faut-il y aller aujourd'hui.
 
 Ne surestime jamais ta certitude. Trois photos et six questions ne remplacent pas une visite : si les éléments ne permettent pas de trancher entre deux causes, dis-le dans "likelyCause" et mets "confidence" à "low". Un diagnostic prudent et honnête vaut mieux qu'un diagnostic affirmatif et faux — le technicien ajustera sur place, mais il ne peut pas rattraper une pièce restée à l'atelier.
+
+Un point de vocabulaire, parce qu'il a déjà été mal lu : « hasPanel » désigne le bandeau de commande du chauffe-eau lui-même — écran ou voyants sur l'appareil —, jamais le tableau électrique du logement.
+
+Seule l'étiquette signalétique passe par une analyse d'image. Les photos de l'appareil entier et de la zone de fuite sont bien prises, stockées et jointes au dossier — c'est le technicien qui les regarde, pas toi. Leur absence dans "analyses" ne signifie donc pas que le client ne les a pas fournies, et ne doit peser ni sur "confidence" ni sur "needsOnSite".
 
 Le champ "needsOnSite" vaut true dès qu'un élément déterminant reste invisible sur les photos.
 

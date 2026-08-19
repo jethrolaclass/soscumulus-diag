@@ -1,5 +1,6 @@
 import type { Env } from '../env';
 import type { PhotoSlot } from '../../../shared/types';
+import { isAnalyzedSlot } from '../../../shared/types';
 import { analyzePhoto, deleteImages, uploadImage } from '../lib/claude';
 import {
   getCase,
@@ -47,21 +48,24 @@ export async function handlePhotoUpload(
     httpMetadata: { contentType: 'image/jpeg' },
   });
 
-  const attempt = await recordUpload(env, token, slot, key);
+  const analyzed = isAnalyzedSlot(slot);
+  const attempt = await recordUpload(env, token, slot, key, analyzed ? 'pending' : 'done');
   await logEvent(env, token, 'photo_received', `slot=${slot} attempt=${attempt}`);
 
   // Analysis continues after the response: the client gets an immediate
   // acknowledgement and polls the case for the verdict. This avoids holding
   // the connection open during the vision call, and lets the photo preview
   // appear without waiting.
-  ctx.waitUntil(
-    analyzeInBackground(env, token, slot, key, attempt, {
-      city: found.city,
-      reportedIssue: found.reportedIssue,
-    }),
-  );
+  if (analyzed) {
+    ctx.waitUntil(
+      analyzeInBackground(env, token, slot, key, attempt, {
+        city: found.city,
+        reportedIssue: found.reportedIssue,
+      }),
+    );
+  }
 
-  return json({ slot, accepted: true, analysisStatus: 'pending' }, 202);
+  return json({ slot, accepted: true, analysisStatus: analyzed ? 'pending' : 'done' }, 202);
 }
 
 async function analyzeInBackground(

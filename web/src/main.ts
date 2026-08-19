@@ -7,7 +7,7 @@ import type {
   PhotoSlot,
   SafetyFlag,
 } from '../../shared/types';
-import { BLOCKING_SAFETY_FLAGS } from '../../shared/types';
+import { BLOCKING_SAFETY_FLAGS, isAnalyzedSlot } from '../../shared/types';
 import * as api from './lib/api';
 import { cameraSupported, captureWithGuide } from './lib/camera';
 import { localGuidance, normalizePhoto } from './lib/image';
@@ -780,6 +780,16 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
       tone: 'ko',
       text: "L'envoi a échoué. Vérifiez votre réseau et réessayez.",
     };
+    return render();
+  }
+
+  // Nothing to wait for on a slot the model never sees: polling would only
+  // hold the client on a screen whose verdict is already settled.
+  if (!isAnalyzedSlot(slot)) {
+    ui.busy = false;
+    ui.analysisMatchesShot = true;
+    state.data!.photos[slot].uploaded = true;
+    ui.verdict = { tone: 'ok', text: '✓ Photo reçue.' };
     return render();
   }
 

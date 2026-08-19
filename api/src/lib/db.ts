@@ -209,20 +209,26 @@ export async function saveAnswers(
     .run();
 }
 
+/**
+ * @param analysisStatus `pending` when a vision call is on its way, `done` for
+ * a slot nobody analyses — the row must never claim to be waiting for a result
+ * that will not come, and `failed` would log a failure that never happened.
+ */
 export async function recordUpload(
   env: Env,
   token: string,
   slot: PhotoSlot,
   r2Key: string,
+  analysisStatus: 'pending' | 'done',
 ): Promise<number> {
   const row = await env.DB.prepare(
     `UPDATE photos
         SET r2_key = ?, skipped = 0, attempts = attempts + 1,
-            analysis = NULL, analysis_status = 'pending', updated_at = ?
+            analysis = NULL, analysis_status = ?, updated_at = ?
       WHERE case_token = ? AND slot = ?
       RETURNING attempts`,
   )
-    .bind(r2Key, now(), token, slot)
+    .bind(r2Key, analysisStatus, now(), token, slot)
     .first<{ attempts: number }>();
   return row?.attempts ?? 1;
 }
