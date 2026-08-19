@@ -25,7 +25,7 @@
  *        - Who has access: Anyone
  *      → Authorize the requested Google scopes, copy the "/exec" URL.
  *   5. Use that URL in the website (SITE.formEndpoint) AND in the Worker's
- *      FICHE_WEBHOOK_URL variable (api/wrangler.toml).
+ *      REPORT_WEBHOOK_URL variable (api/wrangler.toml).
  *   6. Triggers → Add trigger → purgeArchives → Time-driven → Month timer.
  *      Without it, the 2-year retention promised to the client is not kept.
  *

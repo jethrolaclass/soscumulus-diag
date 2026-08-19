@@ -19,7 +19,7 @@ routes = [
 [vars]
 PUBLIC_API_URL    = "https://diag-api.soscumulus.fr"
 PUBLIC_WEB_URL    = "https://diag.soscumulus.fr"
-REPORT_WEBHOOK_URL = ""
+REPORT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwbiwEGuzsHFBcO95SOail-bh7kaqvbE8FHLq87b8gRJ9Eus1tFIsbma_LGgJt7Kj5u/exec"
 SMS_SENDER        = "SOSCumulus"
 EMERGENCY_PHONE   = "+33621560983"
 # Phase de test : seuls ces numéros reçoivent réellement un SMS. Les autres
