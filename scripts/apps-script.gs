@@ -62,11 +62,14 @@ var DEFAULT_STATUS = STATUSES[0].label; // "À rappeler"
 // they meet a human: a technician reading "within_24h" on an intervention
 // sheet is a technician reading a bug.
 var LABELS = {
+  // Exactement les valeurs de Diagnosis.urgency dans shared/types.ts. Une clé
+  // inventée ne casse rien : elle imprime « schedulable » sur l'ordre
+  // d'intervention et personne ne le voit avant le technicien.
   urgency: {
     immediate: "Immédiate",
     within_24h: "Sous 24 h",
-    within_week: "Sous une semaine",
-    scheduled: "À planifier",
+    within_72h: "Sous 72 h",
+    schedulable: "À planifier",
   },
   confidence: { low: "Faible", medium: "Moyenne", high: "Élevée" },
   occupancy: { owner: "Propriétaire", tenant: "Locataire", manager: "Gestionnaire" },
@@ -254,14 +257,14 @@ function buildReport(d) {
   var fields = {
     "{{REF}}": d.ref || "",
     "{{NOM}}": [(d.answers || {}).firstName, (d.answers || {}).lastName]
-      .filter(String).join(" ").trim(),
+      .filter(filled_).join(" ").trim(),
     "{{ADRESSE}}": (d.answers || {}).address || d.city || "",
     "{{TEL}}": d.phone || "",
     "{{VILLE}}": d.city || "",
     "{{PROBLEME}}": d.reportedIssue || "",
     "{{DATE}}": Utilities.formatDate(new Date(), "Europe/Paris", "dd/MM/yyyy HH:mm"),
     "{{APPAREIL}}": [nameplate.brand, nameplate.model, nameplate.capacityLiters ? nameplate.capacityLiters + " L" : ""]
-      .filter(String).join(" · ") || "Non identifié",
+      .filter(filled_).join(" · ") || "Non identifié",
     "{{SYNTHESE}}": diag.summary || "",
     "{{CAUSE}}": diag.likelyCause || "",
     "{{ACTION}}": diag.recommendedAction || "",
@@ -278,7 +281,7 @@ function buildReport(d) {
     "{{MODELE}}": nameplate.model || "",
     "{{CAPACITE}}": nameplate.capacityLiters ? nameplate.capacityLiters + " L" : "",
     "{{SERIE}}": [nameplate.serial, nameplate.manufactureCode, nameplate.manufactureDate]
-      .filter(String).join(" · "),
+      .filter(filled_).join(" · "),
     "{{OCCUPANT}}": LABELS.occupancy[(d.answers || {}).occupancy] || "",
     "{{ECRAN}}": (d.answers || {}).hasPanel === "yes" ? "Oui"
       : (d.answers || {}).hasPanel === "no" ? "Non" : "",
@@ -366,7 +369,7 @@ function sendReportEmail_(d, urls) {
     var urgency = LABELS.urgency[diag.urgency] || diag.urgency || "à évaluer";
     var appliance = [nameplate.brand, nameplate.model,
                      nameplate.capacityLiters ? nameplate.capacityLiters + " L" : ""]
-      .filter(String).join(" · ") || "non identifié";
+      .filter(filled_).join(" · ") || "non identifié";
 
     var inner =
       '<tr><td style="background:' + ORANGE + ';padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;">' +
@@ -533,7 +536,18 @@ function escapeRegex_(s) {
 /** First and last name as one string, empty when neither was given. */
 function who_(d) {
   var a = d.answers || {};
-  return [a.firstName, a.lastName].filter(String).join(" ").trim();
+  return [a.firstName, a.lastName].filter(filled_).join(" ").trim();
+}
+
+/**
+ * Prédicat de filtrage : écarte null, undefined et la chaîne vide.
+ *
+ * `.filter(String)` les gardait — `String(null)` vaut "null", qui est vrai — et
+ * seul `join` les effaçait ensuite, en laissant les séparateurs derrière eux.
+ * D'où le « · » solitaire sur la ligne du numéro de série.
+ */
+function filled_(v) {
+  return v !== null && v !== undefined && v !== "";
 }
 
 function nameplateOf_(d) {
