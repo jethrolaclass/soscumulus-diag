@@ -10,7 +10,7 @@ import type {
 import { BLOCKING_SAFETY_FLAGS, isAnalyzedSlot } from '../../shared/types';
 import * as api from './lib/api';
 import { cameraSupported, captureWithGuide } from './lib/camera';
-import { localGuidance, normalizePhoto } from './lib/image';
+import { localGuidance, normalizePhoto, type LocalQuality } from './lib/image';
 import { extractFrames } from './lib/video';
 import {
   CONTEXT_QUESTIONS,
@@ -43,6 +43,14 @@ interface CaptureUi {
    * two would be checking last shot's figures against this shot's label.
    */
   analysisMatchesShot: boolean;
+  /**
+   * What the local check measured on the photo on screen.
+   *
+   * Kept because it is the only thing we can honestly say about a slot the
+   * model never sees: sharp, or accepted despite a reservation. It also has to
+   * survive the "keep it anyway" path, where the upload happens later.
+   */
+  localVerdict: LocalQuality['verdict'];
 }
 
 const state = {
@@ -78,6 +86,7 @@ function emptyCaptureUi(): CaptureUi {
     busy: false,
     keepOffered: false,
     analysisMatchesShot: true,
+    localVerdict: 'ok',
   };
 }
 
@@ -750,6 +759,7 @@ async function processCapture(slot: PhotoSlot, file: File): Promise<void> {
   ui.analysisMatchesShot = false;
 
   const attempts = state.data!.photos[slot].attempts;
+  ui.localVerdict = normalized.quality.verdict;
   const local = localGuidance(normalized.quality.verdict);
 
   // Local pre-filter, on every slot: it costs nothing and catches the finger
@@ -787,11 +797,19 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
 
   // Nothing to wait for on a slot the model never sees: polling would only
   // hold the client on a screen whose verdict is already settled.
+  //
+  // The local check is then the only thing that spoke, so the message says
+  // exactly what it measured — sharpness, nothing about framing or subject. A
+  // photo sent on a second attempt despite a reservation is acknowledged, not
+  // congratulated.
   if (!isAnalyzedSlot(slot)) {
     ui.busy = false;
     ui.analysisMatchesShot = true;
     state.data!.photos[slot].uploaded = true;
-    ui.verdict = { tone: 'ok', text: '✓ Photo reçue.' };
+    ui.verdict = {
+      tone: 'ok',
+      text: ui.localVerdict === 'ok' ? '✓ Photo nette.' : '✓ Photo reçue.',
+    };
     return render();
   }
 
