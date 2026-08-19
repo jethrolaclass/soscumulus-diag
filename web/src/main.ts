@@ -9,6 +9,7 @@ import type {
 } from '../../shared/types';
 import { BLOCKING_SAFETY_FLAGS } from '../../shared/types';
 import * as api from './lib/api';
+import { cameraSupported, captureNameplate } from './lib/camera';
 import { localGuidance, normalizePhoto } from './lib/image';
 import { extractFrames } from './lib/video';
 import {
@@ -268,6 +269,16 @@ function photoScreen(slot: PhotoSlot): string {
   // own shot — comparing is useful, but their photo is what they came to see.
   const shot = ui.previewUrl ?? (p.uploaded ? api.photoUrl(state.token, slot, p.attempts) : null);
 
+  // The readback promises "retake and we will read it again" — the promise
+  // needs a button, not just a sentence, and it belongs directly under the
+  // sentence that makes it rather than adrift below the card.
+  const retake =
+    shot && !ui.busy
+      ? `<div class="retake"><button class="skip" data-retake="${slot}">Reprendre la photo</button></div>`
+      : '';
+  const readback =
+    slot === 1 && ui.analysisMatchesShot ? nameplateReadback(p.analysis, retake) : '';
+
   return `
     <p class="eyebrow">${cfg.eyebrow}</p>
     <h1>${cfg.title}</h1>
@@ -286,16 +297,9 @@ function photoScreen(slot: PhotoSlot): string {
            </figure>
            ${verdictHtml(ui)}`
     }
-    ${slot === 1 && ui.analysisMatchesShot ? nameplateReadback(p.analysis) : ''}
+    ${readback || retake}
     ${ui.keepOffered ? `<button class="skip" data-keep="${slot}">Garder cette photo quand même</button>` : ''}
-    ${
-      // The readback promises "retake and we will read it again" — the promise
-      // needs a button, not just a sentence.
-      shot && !ui.busy
-        ? `<div><button class="skip" data-retake="${slot}">Reprendre la photo</button></div>`
-        : ''
-    }
-    ${p.skipped || shot ? '' : `<div><button class="skip" data-skip="${slot}">${cfg.skipLabel}</button></div>`}
+    ${p.skipped || shot ? '' : `<div class="retake"><button class="skip" data-skip="${slot}">${cfg.skipLabel}</button></div>`}
     <input class="sr" type="file" accept="image/*" capture="environment" id="file-${slot}">
   `;
 }
@@ -316,7 +320,7 @@ function photoScreen(slot: PhotoSlot): string {
  * Only fields actually read are listed; an empty row would advertise a failure
  * the client can do nothing about.
  */
-function nameplateReadback(analysis: PhotoAnalysis | null): string {
+function nameplateReadback(analysis: PhotoAnalysis | null, retake: string): string {
   const n = analysis?.nameplate;
   if (!n?.readable) return '';
 
@@ -349,6 +353,7 @@ function nameplateReadback(analysis: PhotoAnalysis | null): string {
         )
         .join('')}
       <p class="readback-note">Une erreur ? Reprenez la photo, nous relirons.</p>
+      ${retake}
     </div>`;
 }
 
@@ -563,7 +568,7 @@ function bind(): void {
   });
   app.querySelectorAll<HTMLButtonElement>('[data-retake]').forEach((btn) => {
     btn.addEventListener('click', () =>
-      app.querySelector<HTMLInputElement>(`#file-${btn.dataset.retake}`)?.click(),
+      startCapture(Number(btn.dataset.retake) as PhotoSlot),
     );
   });
   app.querySelectorAll<HTMLButtonElement>('[data-keep]').forEach((btn) => {
@@ -636,7 +641,7 @@ function onPrimary(): void {
       state.screen = slot === 3 ? 's4' : (`s${slot + 1}` as ScreenId);
       return render();
     }
-    return app.querySelector<HTMLInputElement>(`#file-${slot}`)?.click();
+    return void startCapture(slot);
   }
 
   if (state.screen === 's4') {
@@ -675,12 +680,45 @@ function onBack(): void {
 
 /* ---------- Photo capture ---------- */
 
+/**
+ * Opens the camera for a slot.
+ *
+ * A slot that declares a framing guide is shot in the page, over a live
+ * preview: it is the only way to tell the client where to stand, and standing
+ * close enough is the whole difference between a readable label and a sharp,
+ * useless photo. Everything else goes to the system camera app, which focuses
+ * and exposes better than a page ever will.
+ *
+ * Every failure — permission refused, no device, autoplay blocked — falls
+ * through to the system camera. The journey never depends on this.
+ */
+async function startCapture(slot: PhotoSlot): Promise<void> {
+  const systemCamera = () => app.querySelector<HTMLInputElement>(`#file-${slot}`)?.click();
+
+  const guide = PHOTO_SCREENS[slot].guide;
+  if (!guide || !cameraSupported()) return void systemCamera();
+
+  let shot: Blob | null;
+  try {
+    shot = await captureNameplate(guide);
+  } catch {
+    return void systemCamera();
+  }
+  // Backed out: leave the screen exactly as it was.
+  if (!shot) return;
+
+  await processCapture(slot, new File([shot], 'nameplate.jpg', { type: 'image/jpeg' }));
+}
+
 async function onFile(event: Event, slot: PhotoSlot): Promise<void> {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = '';
   if (!file) return;
+  await processCapture(slot, file);
+}
 
+async function processCapture(slot: PhotoSlot, file: File): Promise<void> {
   const ui = state.photoUi[slot];
   ui.busy = true;
   ui.keepOffered = false;

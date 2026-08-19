@@ -134,6 +134,12 @@ export interface PhotoScreen {
     /** `object-position`, so the useful area survives the crop. */
     focus: string;
   };
+  /**
+   * Caption of the framing guide, and the switch that turns it on: a slot that
+   * declares one is shot through the in-page camera, the others through the
+   * system camera app. Only the label needs the client at a set distance.
+   */
+  guide?: string;
 }
 
 export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
@@ -150,6 +156,7 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
       caption: "Net, bien éclairé, l'étiquette remplit l'image.",
       focus: '50% 55%',
     },
+    guide: "Placez l'étiquette dans le cadre",
   },
   2: {
     slot: 2,
