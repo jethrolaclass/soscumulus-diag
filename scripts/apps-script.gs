@@ -20,6 +20,9 @@
  *        TEMPLATE_ID   id of the Google Docs template
  *        ARCHIVE_FOLDER_ID    id of the Drive folder holding intervention files
  *        ARCHIVE_YEARS   2
+ *      Then run `setupStatusColumn` once: it names columns F to H and puts the
+ *      spreadsheet on Europe/Paris. Column H is filled later, when the
+ *      intervention file lands in Drive.
  *   4. Deploy → New deployment → type "Web app".
  *        - Execute as: Me
  *        - Who has access: Anyone
@@ -308,7 +311,104 @@ function buildReport(d) {
 
   archiveMedia_(folder, d);
 
-  return { ok: true, doc: docCopy.getUrl(), pdf: pdf.getUrl(), folder: folder.getUrl() };
+  var urls = { doc: docCopy.getUrl(), pdf: pdf.getUrl(), folder: folder.getUrl() };
+  linkArchiveInSheet_(d.caseUrl, urls.folder);
+  sendReportEmail_(d, urls);
+
+  return { ok: true, doc: urls.doc, pdf: urls.pdf, folder: urls.folder };
+}
+
+/**
+ * Write the archive folder back onto the lead's row, column H.
+ *
+ * The row is found by the client link in column G: it carries the case token,
+ * and it is the only value on that row that identifies the file without
+ * ambiguity — two calls from the same number on the same day are ordinary.
+ * Scanned from the bottom, the recent rows being the ones we want.
+ */
+function linkArchiveInSheet_(caseUrl, folderUrl) {
+  if (!caseUrl) return;
+  try {
+    var sh = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+    var last = sh.getLastRow();
+    if (last < 2) return;
+    var links = sh.getRange(2, 7, last - 1, 1).getValues();
+    for (var i = links.length - 1; i >= 0; i--) {
+      if (String(links[i][0]).trim() === String(caseUrl).trim()) {
+        sh.getRange(i + 2, 8).setValue(folderUrl);
+        return;
+      }
+    }
+    console.warn("Ligne introuvable dans le suivi pour " + caseUrl);
+  } catch (err) {
+    // The file exists in Drive; a missing back-link must not fail the report.
+    console.error("lien dossier non ecrit : " + err);
+  }
+}
+
+/**
+ * Tell the team the diagnosis is ready.
+ *
+ * The synthesis runs after the client has left — thirty seconds to three
+ * minutes later — so this is the only signal that the file is complete. Without
+ * it the sheet fills up with diagnoses nobody knows to go and read.
+ *
+ * Written to be decided on without opening anything: reference, commune,
+ * urgency and likely cause, then the links.
+ */
+function sendReportEmail_(d, urls) {
+  try {
+    var diag = d.diagnosis || {};
+    var nameplate = nameplateOf_(d);
+    var urgency = LABELS.urgency[diag.urgency] || diag.urgency || "à évaluer";
+    var appliance = [nameplate.brand, nameplate.model,
+                     nameplate.capacityLiters ? nameplate.capacityLiters + " L" : ""]
+      .filter(String).join(" · ") || "non identifié";
+
+    var inner =
+      '<tr><td style="background:' + ORANGE + ';padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;">' +
+        '📋 Diagnostic prêt — ' + esc(d.ref) +
+      '</td></tr>' +
+      '<tr><td style="padding:28px 32px 8px;">' +
+        '<p style="margin:0 0 18px;font-size:15px;color:' + INK + ';line-height:1.5;">' +
+          esc(diag.summary || "Le diagnostic n'a pas pu être rédigé — les photos et les réponses sont au dossier.") +
+        '</p>' +
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
+          emailRow_("Urgence", esc(urgency), true) +
+          emailRow_("Commune", esc(d.city || "non renseignée")) +
+          emailRow_("Appareil", esc(appliance)) +
+          emailRow_("Cause probable", esc(diag.likelyCause || "à confirmer sur place")) +
+          emailRow_("Pièces à prévoir", esc((diag.partsLikely || []).join(", ") || "à confirmer")) +
+        '</table>' +
+      '</td></tr>' +
+      '<tr><td style="padding:14px 32px 28px;">' +
+        '<a href="' + esc(urls.pdf) + '" style="display:inline-block;padding:14px 30px;background:' + NAVY + ';font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;">Ouvrir la fiche d\'intervention</a>' +
+        '<p style="margin:14px 0 0;font-size:13px;color:' + GRAY + ';">' +
+          '<a href="' + esc(urls.folder) + '" style="color:' + NAVY + ';">Dossier complet (photos, document modifiable)</a>' +
+        '</p>' +
+      '</td></tr>';
+
+    MailApp.sendEmail({
+      to: RECIPIENTS.join(","),
+      subject: "📋 Diagnostic prêt — " + d.ref + " — " + (d.city || "commune non précisée") +
+               " — urgence " + urgency.toLowerCase(),
+      body:
+        "Diagnostic à distance terminé.\n\n" +
+        "Dossier : " + d.ref + "\n" +
+        "Téléphone : " + (d.phone || "") + "\n" +
+        "Commune : " + (d.city || "non renseignée") + "\n" +
+        "Urgence : " + urgency + "\n" +
+        "Appareil : " + appliance + "\n" +
+        "Cause probable : " + (diag.likelyCause || "à confirmer sur place") + "\n\n" +
+        "Fiche : " + urls.pdf + "\n" +
+        "Dossier : " + urls.folder + "\n",
+      htmlBody: emailShell_("Diagnostic à distance", inner),
+      name: "SOS Cumulus — Diagnostic",
+    });
+  } catch (err) {
+    // The file is in Drive either way; a mail failure must not fail the report.
+    console.error("e-mail de fiche non envoye : " + err);
+  }
 }
 
 /**
@@ -649,6 +749,7 @@ function setupStatusColumn() {
   // Column headers
   sh.getRange("F1").setValue("Statut");
   sh.getRange("G1").setValue("Diagnostic à distance");
+  sh.getRange("H1").setValue("Dossier d'intervention");
 
   // Dropdown
   var dv = SpreadsheetApp.newDataValidation()

@@ -212,8 +212,18 @@ Propriétés du script à renseigner (Paramètres du projet → Propriétés) :
 | `ARCHIVE_FOLDER_ID` | id du dossier Drive d'archivage |
 | `ARCHIVE_YEARS` | `2` |
 
-Puis relancer `setupStatusColumn` une fois (la colonne G accueille désormais le
-lien de diagnostic), et créer le déclencheur mensuel sur `purgeArchives`.
+Puis relancer `setupStatusColumn` une fois — elle nomme les colonnes F à H et
+bascule le classeur sur `Europe/Paris` — et créer le déclencheur mensuel sur
+`purgeArchives`.
+
+Le suivi porte trois colonnes ajoutées : **F** le statut, **G** le lien remis au
+client, **H** le dossier Drive de l'intervention. La H est écrite après coup,
+quand la fiche est produite : la ligne est retrouvée par le lien de la colonne
+G, seule valeur qui porte le jeton du dossier.
+
+Quand la fiche est prête, un e-mail part vers `RECIPIENTS` avec l'urgence, la
+cause probable et les liens. C'est le seul signal de fin : la synthèse tourne
+après le départ du client, personne ne surveille un dossier Drive.
 
 Le modèle Docs est **généré**, pas dessiné à la main :
 

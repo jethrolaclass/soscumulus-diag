@@ -97,6 +97,9 @@ export async function pushReport(
       body: JSON.stringify({
         type: 'report',
         ref: diagnosisCase.ref,
+        // The client's own link. Apps Script has no other way to find the lead's
+        // row again: it is the only value on that row carrying the case token.
+        caseUrl: `${env.PUBLIC_WEB_URL}/d/${token}`,
         phone: diagnosisCase.phone,
         city: diagnosisCase.city,
         reportedIssue: diagnosisCase.reportedIssue,
