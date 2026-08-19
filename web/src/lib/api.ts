@@ -52,9 +52,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const getCase = (token: string) =>
   request<DiagnosisCase>(`/api/case/${token}`);
 
-export const patchAnswers = (token: string, patch: Partial<Answers>) =>
+/**
+ * @param confirmed The client has validated the screen, not just tapped a
+ * choice. A declared hazard only stops the journey on a confirmation: the
+ * safety question is multiple-choice and every tap is saved as it happens.
+ */
+export const patchAnswers = (
+  token: string,
+  patch: Partial<Answers>,
+  confirmed = false,
+) =>
   request<{ answers: Answers; status: string; emergencyPhone?: string }>(
-    `/api/case/${token}/answers`,
+    `/api/case/${token}/answers${confirmed ? '?confirm=1' : ''}`,
     {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },

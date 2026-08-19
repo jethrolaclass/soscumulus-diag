@@ -33,6 +33,7 @@ export async function handleAnswers(
   req: Request,
   env: Env,
   token: string,
+  confirmed: boolean,
 ): Promise<Response> {
   const found = await getCase(env, token);
   if (!found) throw notFound();
@@ -46,10 +47,17 @@ export async function handleAnswers(
   // A declared hazard stops the journey and triggers a call back. This is both
   // a duty of care and the strongest commercial signal in the funnel: it must
   // not sit in a queue.
+  //
+  // But only once the client has confirmed. The safety question is
+  // multiple-choice — "touchez tout ce qui vous concerne" — and every tap is
+  // saved as it happens. Escalating on the first tick meant a mis-tap alerted
+  // the team and locked the file for good, with no way back and no way to
+  // untick. The answers are still recorded either way, so a hazard ticked and
+  // then abandoned stays visible on the case.
   const hazards = (answers.safety ?? []).filter((f) =>
     BLOCKING_SAFETY_FLAGS.includes(f),
   );
-  if (hazards.length > 0 && found.status !== 'safety_stop') {
+  if (confirmed && hazards.length > 0 && found.status !== 'safety_stop') {
     await setStatus(env, token, 'safety_stop');
     await logEvent(env, token, 'safety_stop', hazards.join(','));
     await sendSafetyAlert(env, found.ref, found.phone, found.city, hazards);

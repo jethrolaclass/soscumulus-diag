@@ -85,7 +85,7 @@ async function route(
     }
     // PATCH /api/case/:token/answers
     if (seg[3] === 'answers' && seg.length === 4 && method === 'PATCH') {
-      return handleAnswers(req, env, token);
+      return handleAnswers(req, env, token, url.searchParams.get('confirm') === '1');
     }
     // POST /api/case/:token/photo?slot=N
     if (seg[3] === 'photo' && seg.length === 4 && method === 'POST') {

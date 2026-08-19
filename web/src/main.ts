@@ -723,7 +723,12 @@ function onPrimary(): void {
     const flags = state.answers.safety ?? [];
     const hazard = flags.some((f) => BLOCKING_SAFETY_FLAGS.includes(f));
     state.screen = hazard ? 's-stop' : 's1';
-    return render();
+    render();
+    // Confirmation is what escalates: until this point the client could still
+    // untick a mis-tap. Fired here rather than through the coalescing queue,
+    // which would drop the flag on the next ordinary save.
+    if (hazard) void api.patchAnswers(state.token, state.answers, true).catch(() => {});
+    return;
   }
 
   if (isPhotoScreen(state.screen)) {
