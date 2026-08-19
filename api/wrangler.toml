@@ -40,7 +40,9 @@ bucket_name = "soscumulus-diag-r1"
 # Purge RGPD quotidienne. Le Cron gratuit est limité à 5 déclencheurs par
 # compte : celui-ci est le seul dont le service a besoin.
 [triggers]
-crons = ["17 3 * * *"]
+# 03:17 — retention purge. Every two minutes — finishes the syntheses whose
+# background continuation was cut at the platform's thirty-second ceiling.
+crons = ["17 3 * * *", "*/2 * * * *"]
 
 [observability]
 enabled = true

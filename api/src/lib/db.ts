@@ -214,6 +214,32 @@ function readAnswers(raw: string): Answers {
   return answers;
 }
 
+/**
+ * Cases closed but still without a written diagnosis.
+ *
+ * The synthesis runs after the client has been let go, and that continuation
+ * is capped at thirty seconds of wall time by the platform — a high-effort call
+ * sometimes lands just under and sometimes gets cut, silently. This is the
+ * sweep that finishes the job.
+ *
+ * @param before Only cases untouched since then, so a synthesis still running
+ * is not started a second time.
+ */
+export async function findCasesAwaitingDiagnosis(
+  env: Env,
+  before: string,
+  limit = 10,
+): Promise<string[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT token FROM cases
+      WHERE status = 'submitted' AND diagnosis IS NULL AND updated_at < ?
+      ORDER BY updated_at LIMIT ?`,
+  )
+    .bind(before, limit)
+    .all<{ token: string }>();
+  return results.map((r) => r.token);
+}
+
 export async function saveAnswers(
   env: Env,
   token: string,

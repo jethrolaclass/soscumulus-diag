@@ -77,10 +77,32 @@ export const skipPhoto = (token: string, slot: PhotoSlot) =>
     { method: 'POST' },
   );
 
+/** Returns as soon as the case is closed; `diagnosis` follows, or does not. */
 export const submit = (token: string) =>
-  request<{ status: string; diagnosis: Diagnosis }>(`/api/case/${token}/submit`, {
-    method: 'POST',
-  });
+  request<{ status: string; diagnosis: Diagnosis | null }>(
+    `/api/case/${token}/submit`,
+    { method: 'POST' },
+  );
+
+/**
+ * Waits for the written diagnosis, purely to enrich the confirmation screen.
+ *
+ * Nothing depends on it: the case is already closed, the client may leave, and
+ * the technician has the file either way. Hence the long, slow poll and the
+ * plain `null` when it does not come.
+ */
+export async function waitForDiagnosis(
+  token: string,
+  { timeoutMs = 60_000, intervalMs = 3_000 } = {},
+): Promise<Diagnosis | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(intervalMs);
+    const found = await getCase(token).catch(() => null);
+    if (found?.diagnosis) return found.diagnosis;
+  }
+  return null;
+}
 
 export async function uploadPhoto(
   token: string,

@@ -1116,6 +1116,17 @@ async function onSubmit(): Promise<void> {
     state.submitting = false;
     render();
   }
+
+  // The summary is written after the client has been let go: the screen says
+  // so, and fills in if it arrives while they are still looking. Nothing waits
+  // on it — the case is closed either way.
+  if (!state.diagnosis) {
+    const diagnosis = await api.waitForDiagnosis(state.token);
+    if (diagnosis && state.screen === 's6') {
+      state.diagnosis = diagnosis;
+      render();
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */

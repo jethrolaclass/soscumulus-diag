@@ -1,7 +1,12 @@
 import type { Env } from './env';
 import { purgeExpired } from './lib/db';
 import { handleLead } from './routes/lead';
-import { handleGetCase, handleAnswers, handleSubmit } from './routes/case';
+import {
+  handleGetCase,
+  handleAnswers,
+  handleSubmit,
+  resumeDiagnoses,
+} from './routes/case';
 import {
   handlePhotoFetch,
   handlePhotoUpload,
@@ -32,11 +37,22 @@ export default {
   },
 
   /** Daily GDPR purge — see `[triggers]` in wrangler.toml. */
-  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
-    const n = await purgeExpired(env);
-    if (n > 0) console.log(`purge: ${n} expired case(s)`);
+  // Two schedules, one handler. The nightly one is the retention purge; the
+  // frequent one finishes the syntheses the platform cut short.
+  async scheduled(event: ScheduledController, env: Env): Promise<void> {
+    if (event.cron === PURGE_CRON) {
+      const n = await purgeExpired(env);
+      if (n > 0) console.log(`purge: ${n} expired case(s)`);
+      return;
+    }
+
+    const n = await resumeDiagnoses(env);
+    if (n > 0) console.log(`resumed ${n} pending diagnosis(es)`);
   },
 };
+
+/** Must match `crons` in wrangler.toml. */
+const PURGE_CRON = '17 3 * * *';
 
 async function route(
   req: Request,
