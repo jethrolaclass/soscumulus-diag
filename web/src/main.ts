@@ -248,26 +248,39 @@ function photoScreen(slot: PhotoSlot): string {
   const ui = state.photoUi[slot];
   const p = state.data!.photos[slot];
 
+  // The local object URL dies with the page; past a reload the photo comes back
+  // from the API. Either way the example steps aside once the client has their
+  // own shot — comparing is useful, but their photo is what they came to see.
+  const shot = ui.previewUrl ?? (p.uploaded ? api.photoUrl(state.token, slot, p.attempts) : null);
+
   return `
     <p class="eyebrow">${cfg.eyebrow}</p>
     <h1>${cfg.title}</h1>
     <p class="lead">${cfg.lead}</p>
     ${
-      // The example steps aside once the client has their own shot: comparing
-      // the two is useful, but their photo is what they came to look at.
-      ui.previewUrl
-        ? `<div class="shot"><img src="${ui.previewUrl}" alt="Votre photo"></div>`
+      shot
+        ? `<div class="shot">
+             <img src="${shot}" alt="Votre photo">
+             ${verdictOverlay(ui)}
+           </div>`
         : `<figure class="example">
              <img src="${cfg.example.src}" alt="Exemple de photo attendue"
                   style="object-position:${cfg.example.focus}" loading="eager">
              <span class="tag">✓ Comme ça</span>
              <figcaption>${escapeHtml(cfg.example.caption)}</figcaption>
-           </figure>`
+           </figure>
+           ${verdictHtml(ui)}`
     }
-    ${verdictHtml(ui)}
     ${slot === 1 ? nameplateReadback(p.analysis) : ''}
     ${ui.keepOffered ? `<button class="skip" data-keep="${slot}">Garder cette photo quand même</button>` : ''}
-    ${p.skipped ? '' : `<div><button class="skip" data-skip="${slot}">${cfg.skipLabel}</button></div>`}
+    ${
+      // The readback promises "retake and we will read it again" — the promise
+      // needs a button, not just a sentence.
+      shot && !ui.busy
+        ? `<div><button class="skip" data-retake="${slot}">Reprendre la photo</button></div>`
+        : ''
+    }
+    ${p.skipped || shot ? '' : `<div><button class="skip" data-skip="${slot}">${cfg.skipLabel}</button></div>`}
     <input class="sr" type="file" accept="image/*" capture="environment" id="file-${slot}">
   `;
 }
@@ -323,6 +336,19 @@ const UNIT_TYPES: Record<string, string> = {
   gas: 'Gaz',
   unknown: '',
 };
+
+/**
+ * Verdict laid over the bottom of the photo rather than stacked under it.
+ *
+ * On a phone the screen already carries a heading, a lead, the photo, the
+ * readback and two buttons; a separate verdict band pushed the retake button
+ * below the fold. Over a scrim it costs no vertical space at all.
+ */
+function verdictOverlay(ui: CaptureUi): string {
+  if (!ui.verdict) return '';
+  const spinner = ui.verdict.tone === 'wait' ? '<span class="spinner light"></span>' : '';
+  return `<div class="shot-verdict ${ui.verdict.tone}">${spinner}<span>${escapeHtml(ui.verdict.text)}</span></div>`;
+}
 
 function verdictHtml(ui: CaptureUi): string {
   if (!ui.verdict) return '';
@@ -511,6 +537,11 @@ function bind(): void {
 
   app.querySelectorAll<HTMLButtonElement>('[data-skip]').forEach((btn) => {
     btn.addEventListener('click', () => onSkip(Number(btn.dataset.skip) as PhotoSlot));
+  });
+  app.querySelectorAll<HTMLButtonElement>('[data-retake]').forEach((btn) => {
+    btn.addEventListener('click', () =>
+      app.querySelector<HTMLInputElement>(`#file-${btn.dataset.retake}`)?.click(),
+    );
   });
   app.querySelectorAll<HTMLButtonElement>('[data-keep]').forEach((btn) => {
     btn.addEventListener('click', () => onKeep(Number(btn.dataset.keep) as PhotoSlot));

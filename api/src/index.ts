@@ -2,7 +2,11 @@ import type { Env } from './env';
 import { purgeExpired } from './lib/db';
 import { handleLead } from './routes/lead';
 import { handleGetCase, handleAnswers, handleSubmit } from './routes/case';
-import { handlePhotoUpload, handleSkipPhoto } from './routes/photo';
+import {
+  handlePhotoFetch,
+  handlePhotoUpload,
+  handleSkipPhoto,
+} from './routes/photo';
 import { handlePanelFrame, handlePanelVideo } from './routes/panel';
 import { handleImage } from './routes/image';
 import { json, preflight, withCors, ApiHttpError } from './lib/http';
@@ -70,6 +74,10 @@ async function route(
     // POST /api/case/:token/photo?slot=N
     if (seg[3] === 'photo' && seg.length === 4 && method === 'POST') {
       return handlePhotoUpload(req, env, ctx, token, url.searchParams.get('slot'));
+    }
+    // GET /api/case/:token/photo/:slot — the client's own photo
+    if (seg[3] === 'photo' && seg.length === 5 && method === 'GET') {
+      return handlePhotoFetch(env, token, seg[4]);
     }
     // POST /api/case/:token/photo/:slot/skip
     if (seg[3] === 'photo' && seg[5] === 'skip' && method === 'POST') {

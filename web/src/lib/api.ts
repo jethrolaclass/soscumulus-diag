@@ -56,6 +56,15 @@ export const patchAnswers = (token: string, patch: Partial<Answers>) =>
     },
   );
 
+/**
+ * URL of the client's own photo, served by the API from R2.
+ *
+ * `v` busts the browser cache after a retake: the path is stable per slot, so
+ * without it the previous shot would linger.
+ */
+export const photoUrl = (token: string, slot: PhotoSlot, attempts: number) =>
+  `${BASE}/api/case/${token}/photo/${slot}?v=${attempts}`;
+
 export const skipPhoto = (token: string, slot: PhotoSlot) =>
   request<{ slot: PhotoSlot; skipped: true }>(
     `/api/case/${token}/photo/${slot}/skip`,

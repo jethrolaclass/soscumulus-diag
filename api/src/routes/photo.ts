@@ -1,7 +1,14 @@
 import type { Env } from '../env';
 import type { PhotoSlot } from '../../../shared/types';
 import { analyzePhoto, deleteImages, uploadImage } from '../lib/claude';
-import { getCase, logEvent, markSkipped, recordUpload, saveAnalysis } from '../lib/db';
+import {
+  getCase,
+  getPhotoKey,
+  logEvent,
+  markSkipped,
+  recordUpload,
+  saveAnalysis,
+} from '../lib/db';
 import { badRequest, json, notFound, parseSlot } from '../lib/http';
 
 /**
@@ -101,4 +108,42 @@ export async function handleSkipPhoto(
   await markSkipped(env, token, slot);
   await logEvent(env, token, 'photo_skipped', `slot=${slot}`);
   return json({ slot, skipped: true });
+}
+
+/**
+ * Serve the client their own photo back.
+ *
+ * The preview shown right after a capture is a local object URL, which dies
+ * with the page: on reload the journey fell back to the example shot, as if
+ * nothing had been sent. The photo itself lives in R2 behind a signed URL the
+ * front end never holds.
+ *
+ * The case token is the credential here — it is already what grants access to
+ * everything else in the case, so no second signature is needed. Kept separate
+ * from the signed `/i/` route, whose consumer is the vision API and whose URLs
+ * expire in five minutes.
+ */
+export async function handlePhotoFetch(
+  env: Env,
+  token: string,
+  slotRaw: string,
+): Promise<Response> {
+  const slot = parseSlot(slotRaw);
+  const found = await getCase(env, token);
+  if (!found) throw notFound();
+
+  const key = await getPhotoKey(env, token, slot);
+  if (!key) throw notFound();
+
+  const object = await env.PHOTOS.get(key);
+  if (!object) throw notFound();
+
+  return new Response(object.body, {
+    headers: {
+      'content-type': object.httpMetadata?.contentType ?? 'image/jpeg',
+      // Long enough that navigating back and forth does not refetch, short
+      // enough that a retake shows the new photo.
+      'cache-control': 'private, max-age=60',
+    },
+  });
 }
