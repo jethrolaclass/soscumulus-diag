@@ -190,8 +190,7 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
     skipConfirm: "Noté : rien ne coule pour l'instant.",
     example: {
       src: '/examples/leak.jpg',
-      caption:
-        "Le dessous, la bride et les raccords — là où l'eau se voit. (Vraie photo client.)",
+      caption: "Le dessous, la bride et les raccords — là où l'eau se voit.",
       focus: '50% 60%',
     },
   },
