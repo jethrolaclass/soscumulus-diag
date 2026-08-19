@@ -4,10 +4,16 @@
  *
  * Two architectural constraints drive this module:
  *
- *  1. No image byte transits the Worker. We pass a short-lived signed R2 URL
- *     and the API fetches the image itself. Base64-encoding 300 KB inside a
- *     Worker would blow the free plan's 10 ms CPU budget; signing a URL costs
- *     less than one.
+ *  1. Images reach the model through the Files API, never base64 and never a
+ *     URL the API has to fetch. Signed URLs were the first design and had to
+ *     go: the generated URL answered 200 with the right image from everywhere
+ *     we could test, yet the API replied "Unable to download the file" — from
+ *     the custom domain and from workers.dev alike. Whatever blocks that
+ *     inbound fetch is outside our reach, so we push instead of being pulled.
+ *
+ *     The bytes stream from R2 into the upload as a Blob copy, not a base64
+ *     encode — a memory copy, cheap enough to stay inside the CPU budget.
+ *     Uploaded files are deleted once the analysis returns.
  *
  *  2. Structured output, no agent loop. The task is "look at this photo,
  *     return this JSON": `output_config.format` guarantees a parseable result
@@ -41,6 +47,7 @@ const MODEL = 'claude-opus-5';
  * within the same call.
  */
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
+const FILES_BETA = 'files-api-2025-04-14';
 
 /**
  * `fallbacks` is accepted by the API but not yet described by the SDK types
@@ -49,9 +56,37 @@ const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
  * the SDK exposes the field.
  */
 const REFUSAL_FALLBACK = {
-  betas: [FALLBACK_BETA],
+  betas: [FALLBACK_BETA, FILES_BETA],
   fallbacks: 'default',
 } as unknown as { betas: string[] };
+
+/**
+ * Push one R2 object to the Files API and return its id.
+ *
+ * Throws when the object is missing: an absent photo is a bug worth surfacing,
+ * not something to paper over with a partial analysis.
+ */
+export async function uploadImage(env: Env, r2Key: string): Promise<string> {
+  const object = await env.PHOTOS.get(r2Key);
+  if (!object) throw new VisionError('empty', `R2 object missing: ${r2Key}`);
+
+  const uploaded = await client(env).beta.files.upload({
+    file: new File([await object.blob()], 'photo.jpg', { type: 'image/jpeg' }),
+    betas: [FILES_BETA],
+  });
+  return uploaded.id;
+}
+
+/** Best effort: a leftover file costs storage, never correctness. */
+export async function deleteImages(env: Env, fileIds: string[]): Promise<void> {
+  await Promise.all(
+    fileIds.map((id) =>
+      client(env)
+        .beta.files.delete(id, { betas: [FILES_BETA] })
+        .catch((err) => console.error(`file ${id} not deleted`, err)),
+    ),
+  );
+}
 
 function client(env: Env): Anthropic {
   return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 2 });
@@ -133,7 +168,7 @@ export interface PhotoContext {
 export async function analyzePhoto(
   env: Env,
   slot: PhotoSlot,
-  imageUrl: string,
+  fileId: string,
   context: PhotoContext,
 ): Promise<PhotoAnalysis> {
   const anthropic = client(env);
@@ -169,7 +204,7 @@ export async function analyzePhoto(
       {
         role: 'user',
         content: [
-          { type: 'image', source: { type: 'url', url: imageUrl } },
+          { type: 'image', source: { type: 'file', file_id: fileId } },
           { type: 'text', text: declared || 'Analyse cette photo.' },
         ],
       },
@@ -200,7 +235,7 @@ export async function analyzePhoto(
 
 export async function analyzeControlPanel(
   env: Env,
-  frameUrls: string[],
+  frameIds: string[],
   context: { reportedIssue: string | null },
 ): Promise<ControlPanelAnalysis> {
   const anthropic = client(env);
@@ -223,12 +258,15 @@ export async function analyzeControlPanel(
         content: [
           // Each frame is preceded by its rank: with no explicit marker the
           // model has no way to restore the order in its description.
-          ...frameUrls.flatMap((url, i) => [
+          ...frameIds.flatMap((fileId, i) => [
             {
               type: 'text' as const,
-              text: `Image ${i + 1} sur ${frameUrls.length}`,
+              text: `Image ${i + 1} sur ${frameIds.length}`,
             },
-            { type: 'image' as const, source: { type: 'url' as const, url } },
+            {
+              type: 'image' as const,
+              source: { type: 'file' as const, file_id: fileId },
+            },
           ]),
           {
             type: 'text' as const,
@@ -247,7 +285,7 @@ export async function analyzeControlPanel(
 
   logUsage(env, 'control_panel', response.usage);
   const parsed = parseJson<Omit<ControlPanelAnalysis, 'frameCount'>>(response);
-  return { ...parsed, frameCount: frameUrls.length };
+  return { ...parsed, frameCount: frameIds.length };
 }
 
 /* ------------------------------------------------------------------ */

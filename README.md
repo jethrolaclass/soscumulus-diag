@@ -29,10 +29,11 @@ Formulaire site → Google Apps Script → Worker /api/lead → SMS
 
 Deux décisions structurantes, détaillées dans les commentaires du code :
 
-- **Aucun octet d'image ne transite par le Worker.** Les photos partent en flux
-  vers R2, et l'API vision les récupère via une URL signée à durée courte. Un
-  encodage base64 dans le Worker dépasserait à lui seul les 10 ms de CPU du
-  plan gratuit.
+- **Les photos partent en flux vers R2**, jamais en mémoire : un encodage
+  base64 dans le Worker dépasserait à lui seul les 10 ms de CPU du plan
+  gratuit. L'envoi au modèle passe ensuite par l'API Files — les URL signées
+  ont été essayées d'abord et l'API ne parvenait jamais à les télécharger,
+  bien qu'elles répondent 200 partout ailleurs.
 - **Chaque photo est analysée dès son envoi**, pas à la fin. Le client est
   encore devant son appareil : c'est le seul moment où « rapprochez-vous de
   l'étiquette » sert à quelque chose.

@@ -17,10 +17,15 @@ le parcours se paie directement en dossiers abandonnés.
 Ces règles ont chacune coûté une analyse ; ne les défaire qu'en connaissance
 de cause.
 
-1. **Aucun octet d'image ne transite en mémoire dans le Worker.** Les uploads
-   partent en flux vers R2 (`req.body` direct dans `PHOTOS.put`), et l'API
-   vision lit les photos via une URL signée. Un `base64` ou un
-   `arrayBuffer()` sur une photo dépasse les 10 ms de CPU du plan gratuit.
+1. **Les images vont au modèle par l'API Files, jamais en base64 ni par URL.**
+   Les uploads client partent toujours en flux vers R2 (`req.body` direct dans
+   `PHOTOS.put`) : ça, ne pas y toucher, un `base64` sur une photo exploserait
+   le CPU. En revanche l'envoi au modèle passe par `beta.files.upload` — la
+   première version donnait une URL signée à charge pour l'API d'aller la
+   chercher, et elle répondait invariablement « Unable to download the file »,
+   depuis le domaine propre comme depuis workers.dev, alors que la même URL
+   répondait 200 partout ailleurs. Ce blocage nous échappe : on pousse au lieu
+   d'attendre d'être tiré. Les fichiers envoyés sont supprimés après analyse.
 
 2. **Le parcours ne bloque jamais le client.** Photo refusée, analyse en
    échec, réseau perdu, délai dépassé : il existe toujours un chemin pour

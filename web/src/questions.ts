@@ -147,8 +147,7 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
       "Pas de souci — photographiez alors le dessus ou le capot, et notre technicien s'en occupera.",
     example: {
       src: '/examples/nameplate.jpg',
-      caption:
-        "Net, bien éclairé, l'étiquette remplit l'image. (Vraie photo client.)",
+      caption: "Net, bien éclairé, l'étiquette remplit l'image.",
       focus: '50% 55%',
     },
   },

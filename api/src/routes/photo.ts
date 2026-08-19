@@ -1,8 +1,7 @@
 import type { Env } from '../env';
 import type { PhotoSlot } from '../../../shared/types';
-import { analyzePhoto } from '../lib/claude';
+import { analyzePhoto, deleteImages, uploadImage } from '../lib/claude';
 import { getCase, logEvent, markSkipped, recordUpload, saveAnalysis } from '../lib/db';
-import { signedImageUrl } from '../lib/signing';
 import { badRequest, json, notFound, parseSlot } from '../lib/http';
 
 /**
@@ -65,9 +64,10 @@ async function analyzeInBackground(
   attempt: number,
   context: { city: string | null; reportedIssue: string | null },
 ): Promise<void> {
+  let fileId: string | null = null;
   try {
-    const url = await signedImageUrl(env.SIGNING_KEY, env.PUBLIC_API_URL, key);
-    const analysis = await analyzePhoto(env, slot, url, { ...context, attempt });
+    fileId = await uploadImage(env, key);
+    const analysis = await analyzePhoto(env, slot, fileId, { ...context, attempt });
     await saveAnalysis(env, token, slot, analysis);
     await logEvent(
       env,
@@ -82,6 +82,9 @@ async function analyzeInBackground(
     console.error(`photo analysis failed for slot ${slot}`, err);
     await saveAnalysis(env, token, slot, null);
     await logEvent(env, token, 'photo_analysis_failed', `slot=${slot}`);
+  } finally {
+    // The copy has served its purpose; R2 keeps the original.
+    if (fileId) await deleteImages(env, [fileId]);
   }
 }
 

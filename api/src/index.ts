@@ -43,9 +43,10 @@ async function route(
   const seg = url.pathname.split('/').filter(Boolean);
   const method = req.method;
 
-  // GET /i/:key — signed image, consumed by the vision API.
-  if (seg[0] === 'i' && seg.length === 2 && method === 'GET') {
-    return handleImage(req, env, decodeURIComponent(seg[1]));
+  // GET /i/:token/:filename — signed image, consumed by the vision API.
+  // Two segments, never one percent-encoded key: see signedImageUrl.
+  if (seg[0] === 'i' && seg.length === 3 && method === 'GET') {
+    return handleImage(req, env, `${seg[1]}/${seg[2]}`);
   }
 
   if (seg[0] !== 'api') return json({ error: 'not_found', message: '' }, 404);

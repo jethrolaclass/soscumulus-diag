@@ -1,5 +1,5 @@
 import type { Env } from '../env';
-import { analyzeControlPanel } from '../lib/claude';
+import { analyzeControlPanel, deleteImages, uploadImage } from '../lib/claude';
 import {
   getCase,
   logEvent,
@@ -9,7 +9,6 @@ import {
   recordPanelVideo,
   savePanelAnalysis,
 } from '../lib/db';
-import { signedImageUrl } from '../lib/signing';
 import { badRequest, json, notFound } from '../lib/http';
 
 /**
@@ -79,13 +78,14 @@ async function analyzeInBackground(
   total: number,
   reportedIssue: string | null,
 ): Promise<void> {
+  let fileIds: string[] = [];
   try {
-    const urls = await Promise.all(
-      Array.from({ length: total }, (_, i) =>
-        signedImageUrl(env.SIGNING_KEY, env.PUBLIC_API_URL, panelFrameKey(token, i)),
-      ),
-    );
-    const analysis = await analyzeControlPanel(env, urls, { reportedIssue });
+    // Sequential, not parallel: the frames are small and five concurrent
+    // uploads inside one invocation buy nothing worth the burst.
+    for (let i = 0; i < total; i++) {
+      fileIds.push(await uploadImage(env, panelFrameKey(token, i)));
+    }
+    const analysis = await analyzeControlPanel(env, fileIds, { reportedIssue });
     await savePanelAnalysis(env, token, analysis);
     await logEvent(
       env,
@@ -99,6 +99,8 @@ async function analyzeInBackground(
     console.error('control panel analysis failed', err);
     await savePanelAnalysis(env, token, null);
     await logEvent(env, token, 'panel_analysis_failed', null);
+  } finally {
+    if (fileIds.length) await deleteImages(env, fileIds);
   }
 }
 

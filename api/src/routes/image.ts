@@ -29,9 +29,13 @@ export async function handleImage(
   return new Response(object.body, {
     headers: {
       'content-type': object.httpMetadata?.contentType ?? 'image/jpeg',
-      'cache-control': 'private, no-store',
-      // These images are not meant to be indexed or referenced.
-      'x-robots-tag': 'noindex, nofollow',
+      // Deliberately no `x-robots-tag` and no `no-store`: the only consumer of
+      // this route is the vision API's fetcher, and a well-behaved fetcher may
+      // honour a noindex/nofollow directive by declining the download — which
+      // it did, surfacing as "Unable to download the file". Access is
+      // controlled by the signature and its five-minute expiry, not by asking
+      // clients politely to look away.
+      'cache-control': 'private, max-age=60',
     },
   });
 }

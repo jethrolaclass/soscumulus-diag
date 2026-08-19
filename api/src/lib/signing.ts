@@ -89,7 +89,15 @@ export async function signedImageUrl(
 ): Promise<string> {
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
   const sig = await sign(secret, `${key}:${exp}`);
-  const url = new URL(`/i/${encodeURIComponent(key)}`, publicApiUrl);
+
+  // The key is laid out across path segments rather than percent-encoded into
+  // one. Many HTTP clients normalise `%2F` back to `/` before sending, and the
+  // Anthropic fetcher is one of them: an encoded key arrived split, missed the
+  // route and came back 404, which surfaced as "Unable to download the file".
+  //
+  // Keys are always `<token>/<filename>`, and both halves only use characters
+  // that are safe in a path, so no encoding is needed at all.
+  const url = new URL(`/i/${key}`, publicApiUrl);
   url.searchParams.set('exp', String(exp));
   url.searchParams.set('sig', sig);
   return url.toString();
