@@ -187,8 +187,13 @@ function slotStrip(): string {
       const done = p?.uploaded || p?.skipped;
       const cls = ['slot', done ? 'done' : '', active ? 'active' : ''].join(' ');
       const label = ['1 · Plaque', '2 · Ensemble', '3 · Fuite'][slot - 1];
-      const inner = ui.previewUrl
-        ? `<img src="${ui.previewUrl}" alt="">`
+      // Same rule as the screen itself: the local preview dies with the page,
+      // so past a reload the thumbnail comes back from the API.
+      const thumb =
+        ui.previewUrl ??
+        (p?.uploaded ? api.photoUrl(state.token, slot, p.attempts) : null);
+      const inner = thumb
+        ? `<img src="${thumb}" alt="">`
         : p?.skipped
           ? '—'
           : label;
