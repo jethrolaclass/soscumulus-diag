@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#1B3A5C"/>
+  <text x="32" y="30" font-family="Montserrat, Arial, sans-serif" font-size="20" font-weight="800" fill="#ffffff" text-anchor="middle">SOS</text>
+  <g transform="translate(24,38)">
+    <rect x="0" y="6" width="16" height="5" rx="2" fill="#FF5B29"/>
+    <rect x="5.5" y="0.5" width="5" height="16" rx="2" fill="#FF5B29"/>
+  </g>
+</svg>
