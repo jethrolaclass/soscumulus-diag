@@ -1,5 +1,23 @@
-/* Identity carried over from the prototype: navy/orange, Syne for headings.
-   Phone frame on desktop, full screen on mobile. */
+/* Identity carried over from the prototype: navy/orange, one column on every
+   screen. The type is soscumulus.fr's: same family, same file. */
+
+/*
+ * Montserrat, copied byte for byte from the main site rather than pulled from
+ * Google Fonts. Two reasons: a client arriving from soscumulus.fr already has
+ * it in cache, and a cellar on degraded 4G is no place to open connections to
+ * two more hosts before the first heading can be drawn.
+ *
+ * One variable file covers 400 to 800 — the whole weight range the interface
+ * uses — in 35 KB. No unicode-range: the page is always French, and any glyph
+ * the file lacks (arrows, ticks) falls back on its own.
+ */
+@font-face {
+  font-family: Montserrat;
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/montserrat-latin.woff2') format('woff2');
+}
 
 :root {
   --navy: #0f2d5c;
@@ -14,14 +32,14 @@
   --ok-bg: #e3f2e8;
   --ko: #c62828;
   --ko-bg: #fde7e7;
-  --syne: 'Syne', 'Arial Black', sans-serif;
-  --dm: 'DM Sans', system-ui, sans-serif;
+  /* Same stack as soscumulus.fr, fallbacks included. */
+  --font: Montserrat, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; }
 body {
-  font-family: var(--dm);
+  font-family: var(--font);
   color: var(--ink);
   background: #e9e4da;
   font-size: 17px;
@@ -55,7 +73,7 @@ body {
 /* ---------- Header ---------- */
 .top { background: var(--navy); color: #fff; padding: 16px 18px 14px; }
 .brand { display: flex; align-items: center; justify-content: space-between; }
-.brand .name { font-family: var(--syne); font-weight: 800; font-size: 17px; letter-spacing: .3px; }
+.brand .name { font-weight: 800; font-size: 17px; letter-spacing: .3px; }
 .brand .name span { color: var(--orange); }
 .brand .id { font-size: 12px; color: #b9c6da; font-weight: 600; letter-spacing: .6px; }
 .strip { display: flex; gap: 8px; margin-top: 12px; }
@@ -69,8 +87,9 @@ body {
 }
 .slot img { width: 100%; height: 100%; object-fit: cover; }
 .slot.done { border: 1.5px solid var(--orange-2); }
-/* The tick is drawn, not typeset: the "✓" glyph sits low and right of its em
-   box in DM Sans, so flex centring put it visibly off-centre in the disc. */
+/* The tick is drawn, not typeset: "✓" is absent from the text face, so it comes
+   from whatever the system substitutes, with metrics we do not control — it sat
+   low and right of its em box, and flex centring centres the box, not the ink. */
 .slot.done::after {
   content: ""; position: absolute; right: 5px; bottom: 3px;
   background-color: var(--ok); width: 18px; height: 18px; border-radius: 50%;
@@ -93,11 +112,11 @@ body {
 /* ---------- Body ---------- */
 .body { flex: 1; padding: 18px 18px 130px; overflow-y: auto; }
 .eyebrow {
-  font-family: var(--syne); font-weight: 700; font-size: 11px;
+  font-weight: 700; font-size: 11px;
   letter-spacing: 1.2px; text-transform: uppercase; color: var(--orange); margin: 0 0 6px;
 }
-h1 { font-family: var(--syne); font-weight: 800; font-size: 26px; line-height: 1.15; margin: 0 0 8px; color: var(--navy); }
-h2 { font-family: var(--syne); font-weight: 700; font-size: 20px; line-height: 1.2; margin: 0 0 6px; color: var(--navy); }
+h1 { font-weight: 800; font-size: 26px; line-height: 1.15; margin: 0 0 8px; color: var(--navy); }
+h2 { font-weight: 700; font-size: 20px; line-height: 1.2; margin: 0 0 6px; color: var(--navy); }
 p { margin: 0 0 12px; }
 .lead { font-size: 17px; color: #34404f; }
 .hint { font-size: 14px; color: var(--muted); }
@@ -265,13 +284,13 @@ p { margin: 0 0 12px; }
   background: linear-gradient(180deg, rgba(251, 247, 240, 0), var(--cream) 30%);
 }
 .btn {
-  width: 100%; font: inherit; font-family: var(--syne); font-weight: 700;
+  width: 100%; font: inherit; font-weight: 700;
   font-size: 17px; padding: 17px 16px; border-radius: 14px; border: none;
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
 }
 .btn.primary { background: var(--orange); color: #fff; box-shadow: 0 8px 22px rgba(232, 85, 47, .35); }
 .btn.primary:disabled { background: #d9c9be; box-shadow: none; cursor: not-allowed; }
-.btn.ghost { background: none; color: var(--navy); margin-top: 8px; padding: 10px; font-family: var(--dm); font-weight: 600; font-size: 15px; }
+.btn.ghost { background: none; color: var(--navy); margin-top: 8px; padding: 10px; font-weight: 600; font-size: 15px; }
 .btn:focus-visible { outline: 3px solid rgba(15, 45, 92, .35); }
 
 /* ---------- Safety stop ---------- */
@@ -282,7 +301,7 @@ p { margin: 0 0 12px; }
 .call {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   background: var(--navy); color: #fff; text-decoration: none; padding: 16px;
-  border-radius: 14px; font-family: var(--syne); font-weight: 700; margin-top: 12px;
+  border-radius: 14px; font-weight: 700; margin-top: 12px;
 }
 
 /* ---------- Confirmation ---------- */
@@ -301,7 +320,7 @@ p { margin: 0 0 12px; }
 .steps li::before {
   counter-increment: s; content: counter(s); position: absolute; left: 0; top: -2px;
   width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: #fff;
-  font-family: var(--syne); font-weight: 800; font-size: 14px;
+  font-weight: 800; font-size: 14px;
   display: flex; align-items: center; justify-content: center;
 }
 
