@@ -8,9 +8,10 @@ import type {
   SafetyFlag,
 } from '../../shared/types';
 import { BLOCKING_SAFETY_FLAGS, isAnalyzedSlot } from '../../shared/types';
+import type { LocalVerdict } from '../../shared/types';
 import * as api from './lib/api';
 import { cameraSupported, captureWithGuide } from './lib/camera';
-import { localGuidance, normalizePhoto, type LocalQuality } from './lib/image';
+import { localGuidance, normalizePhoto } from './lib/image';
 import { extractFrames } from './lib/video';
 import {
   CONTEXT_QUESTIONS,
@@ -50,7 +51,7 @@ interface CaptureUi {
    * model never sees: sharp, or accepted despite a reservation. It also has to
    * survive the "keep it anyway" path, where the upload happens later.
    */
-  localVerdict: LocalQuality['verdict'];
+  localVerdict: LocalVerdict;
 }
 
 const state = {
@@ -118,10 +119,17 @@ async function boot(): Promise<void> {
   else if (state.data.status === 'submitted') state.screen = 's6';
   else state.screen = resumeScreen(state.data);
 
+  // Resuming: the verdict is rebuilt from the case, not lost with the page.
+  // On a slot the model never sees, the browser's own reading is what is left,
+  // which is exactly why it travels with the upload.
   for (const slot of [1, 2, 3] as PhotoSlot[]) {
     const p = state.data.photos[slot];
-    if (p.uploaded && p.analysis) {
+    if (!p.uploaded) continue;
+    if (p.analysis) {
       state.photoUi[slot].verdict = verdictFor(p.analysis.usable, p.analysis.guidance);
+    } else if (p.localVerdict) {
+      state.photoUi[slot].localVerdict = p.localVerdict;
+      state.photoUi[slot].verdict = localVerdictMessage(p.localVerdict);
     }
   }
 
@@ -785,7 +793,7 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
   render();
 
   try {
-    await api.uploadPhoto(state.token, slot, blob);
+    await api.uploadPhoto(state.token, slot, blob, ui.localVerdict);
   } catch {
     ui.busy = false;
     ui.verdict = {
@@ -806,10 +814,7 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
     ui.busy = false;
     ui.analysisMatchesShot = true;
     state.data!.photos[slot].uploaded = true;
-    ui.verdict = {
-      tone: 'ok',
-      text: ui.localVerdict === 'ok' ? '✓ Photo nette.' : '✓ Photo reçue.',
-    };
+    ui.verdict = localVerdictMessage(ui.localVerdict);
     return render();
   }
 
@@ -850,6 +855,15 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
 
   ui.verdict = verdictFor(analysis.usable, analysis.guidance);
   render();
+}
+
+/**
+ * What the browser's own check is allowed to claim: sharpness, and nothing
+ * about framing or subject — that was the model's job. A photo sent on a second
+ * attempt despite a reservation is acknowledged, never congratulated.
+ */
+function localVerdictMessage(verdict: LocalVerdict): CaptureUi['verdict'] {
+  return { tone: 'ok', text: verdict === 'ok' ? '✓ Photo nette.' : '✓ Photo reçue.' };
 }
 
 function verdictFor(usable: boolean, guidance: string | null): CaptureUi['verdict'] {

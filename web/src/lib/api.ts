@@ -1,4 +1,10 @@
-import type { Answers, Diagnosis, DiagnosisCase, PhotoSlot } from '../../../shared/types';
+import type {
+  Answers,
+  Diagnosis,
+  DiagnosisCase,
+  LocalVerdict,
+  PhotoSlot,
+} from '../../../shared/types';
 
 /**
  * Production API origin.
@@ -80,8 +86,9 @@ export async function uploadPhoto(
   token: string,
   slot: PhotoSlot,
   blob: Blob,
+  localVerdict: LocalVerdict,
 ): Promise<void> {
-  await request(`/api/case/${token}/photo?slot=${slot}`, {
+  await request(`/api/case/${token}/photo?slot=${slot}&q=${localVerdict}`, {
     method: 'POST',
     headers: { 'content-type': 'image/jpeg' },
     body: blob,

@@ -69,6 +69,24 @@ export interface Answers {
   availability?: 'morning' | 'midday' | 'afternoon' | 'evening';
 }
 
+/**
+ * Verdict of the check the browser runs on the photo before sending it —
+ * sharpness, exposure, glare. Recorded with the upload.
+ *
+ * It used to live only in the page. Now that two slots out of three never
+ * reach the model, it is the only quality signal they carry: the client sees
+ * it again after a reload, and the team can tell whether a photo that turned
+ * out unusable had been flagged and sent anyway.
+ */
+export type LocalVerdict = 'ok' | 'blurry' | 'dark' | 'overexposed';
+
+export const LOCAL_VERDICTS: readonly LocalVerdict[] = [
+  'ok',
+  'blurry',
+  'dark',
+  'overexposed',
+];
+
 export interface PhotoState {
   slot: PhotoSlot;
   uploaded: boolean;
@@ -77,6 +95,8 @@ export interface PhotoState {
   analysis: PhotoAnalysis | null;
   /** Stays `pending` until the model returns its verdict. */
   analysisStatus: 'idle' | 'pending' | 'done' | 'failed';
+  /** `null` on a photo uploaded before this was recorded, or skipped. */
+  localVerdict: LocalVerdict | null;
 }
 
 export interface DiagnosisCase {

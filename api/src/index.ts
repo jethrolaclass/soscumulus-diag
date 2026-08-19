@@ -73,7 +73,14 @@ async function route(
     }
     // POST /api/case/:token/photo?slot=N
     if (seg[3] === 'photo' && seg.length === 4 && method === 'POST') {
-      return handlePhotoUpload(req, env, ctx, token, url.searchParams.get('slot'));
+      return handlePhotoUpload(
+        req,
+        env,
+        ctx,
+        token,
+        url.searchParams.get('slot'),
+        url.searchParams.get('q'),
+      );
     }
     // GET /api/case/:token/photo/:slot — the client's own photo
     if (seg[3] === 'photo' && seg.length === 5 && method === 'GET') {

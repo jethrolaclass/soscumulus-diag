@@ -14,6 +14,8 @@
  * coordinates of the client's home.
  */
 
+import type { LocalVerdict } from '../../../shared/types';
+
 /**
  * Target long edge, per photo slot.
  *
@@ -57,7 +59,7 @@ export interface LocalQuality {
   brightness: number;
   /** Share of pixels blown to white — reveals glare or a too-close flash. */
   blownOut: number;
-  verdict: 'ok' | 'blurry' | 'dark' | 'overexposed';
+  verdict: LocalVerdict;
 }
 
 /*

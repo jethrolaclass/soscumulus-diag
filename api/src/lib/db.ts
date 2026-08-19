@@ -10,6 +10,7 @@ import type {
   ControlPanelState,
   Diagnosis,
   DiagnosisCase,
+  LocalVerdict,
   PhotoAnalysis,
   PhotoSlot,
   PhotoState,
@@ -45,6 +46,7 @@ interface PhotoRow {
   attempts: number;
   analysis: string | null;
   analysis_status: PhotoState['analysisStatus'];
+  local_verdict: LocalVerdict | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -120,7 +122,7 @@ export async function getCase(
   if (new Date(row.expires_at) < new Date()) return null;
 
   const { results } = await env.DB.prepare(
-    `SELECT slot, r2_key, skipped, attempts, analysis, analysis_status
+    `SELECT slot, r2_key, skipped, attempts, analysis, analysis_status, local_verdict
        FROM photos WHERE case_token = ? ORDER BY slot`,
   )
     .bind(token)
@@ -136,6 +138,7 @@ export async function getCase(
         attempts: p?.attempts ?? 0,
         analysis: p?.analysis ? (JSON.parse(p.analysis) as PhotoAnalysis) : null,
         analysisStatus: p?.analysis_status ?? 'idle',
+        localVerdict: p?.local_verdict ?? null,
       };
       return [slot, state];
     }),
@@ -220,15 +223,16 @@ export async function recordUpload(
   slot: PhotoSlot,
   r2Key: string,
   analysisStatus: 'pending' | 'done',
+  localVerdict: LocalVerdict | null,
 ): Promise<number> {
   const row = await env.DB.prepare(
     `UPDATE photos
         SET r2_key = ?, skipped = 0, attempts = attempts + 1,
-            analysis = NULL, analysis_status = ?, updated_at = ?
+            analysis = NULL, analysis_status = ?, local_verdict = ?, updated_at = ?
       WHERE case_token = ? AND slot = ?
       RETURNING attempts`,
   )
-    .bind(r2Key, analysisStatus, now(), token, slot)
+    .bind(r2Key, analysisStatus, localVerdict, now(), token, slot)
     .first<{ attempts: number }>();
   return row?.attempts ?? 1;
 }

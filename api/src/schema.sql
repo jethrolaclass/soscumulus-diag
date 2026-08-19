@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS photos (
   attempts        INTEGER NOT NULL DEFAULT 0,
   analysis        TEXT,
   analysis_status TEXT NOT NULL DEFAULT 'idle',  -- idle | pending | done | failed
+  -- Verdict of the browser-side check, recorded at upload. The only quality
+  -- signal on the slots the model no longer sees.
+  local_verdict   TEXT,                          -- ok | blurry | dark | overexposed
   updated_at      TEXT NOT NULL,
   PRIMARY KEY (case_token, slot),
   FOREIGN KEY (case_token) REFERENCES cases (token) ON DELETE CASCADE

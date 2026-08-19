@@ -1,6 +1,6 @@
 import type { Env } from '../env';
-import type { PhotoSlot } from '../../../shared/types';
-import { isAnalyzedSlot } from '../../../shared/types';
+import type { LocalVerdict, PhotoSlot } from '../../../shared/types';
+import { LOCAL_VERDICTS, isAnalyzedSlot } from '../../../shared/types';
 import { analyzePhoto, deleteImages, uploadImage } from '../lib/claude';
 import {
   getCase,
@@ -19,12 +19,22 @@ import { badRequest, json, notFound, parseSlot } from '../lib/http';
  */
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
+/**
+ * The browser's own verdict, carried as a query parameter rather than a header:
+ * one fewer entry in the CORS allow-list, and nothing to keep in sync there.
+ * Anything unrecognised is dropped — this is client-supplied.
+ */
+function parseLocalVerdict(raw: string | null): LocalVerdict | null {
+  return LOCAL_VERDICTS.find((v) => v === raw) ?? null;
+}
+
 export async function handlePhotoUpload(
   req: Request,
   env: Env,
   ctx: ExecutionContext,
   token: string,
   slotRaw: string | null,
+  localVerdictRaw: string | null,
 ): Promise<Response> {
   const slot = parseSlot(slotRaw);
   const found = await getCase(env, token);
@@ -49,7 +59,14 @@ export async function handlePhotoUpload(
   });
 
   const analyzed = isAnalyzedSlot(slot);
-  const attempt = await recordUpload(env, token, slot, key, analyzed ? 'pending' : 'done');
+  const attempt = await recordUpload(
+    env,
+    token,
+    slot,
+    key,
+    analyzed ? 'pending' : 'done',
+    parseLocalVerdict(localVerdictRaw),
+  );
   await logEvent(env, token, 'photo_received', `slot=${slot} attempt=${attempt}`);
 
   // Analysis continues after the response: the client gets an immediate
