@@ -144,11 +144,18 @@ export async function sendSafetyAlert(
 ): Promise<void> {
   if (!env.REPORT_WEBHOOK_URL) return;
   try {
-    await fetch(webhookUrl(env), {
+    const res = await fetch(webhookUrl(env), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'safety_alert', ref, phone, city, flags }),
     });
+    // Same blindness as the report: Apps Script answers 200 to its own errors.
+    // This is the one message in the product that must not fail quietly — a
+    // client has declared a hazard and is waiting for a call back.
+    const answer = (await res.json().catch(() => null)) as { ok?: boolean } | null;
+    if (!res.ok || !answer?.ok) {
+      throw new Error(`Apps Script ${res.status} — alerte non confirmée`);
+    }
   } catch (err) {
     console.error('safety alert not delivered', err);
   }

@@ -126,10 +126,13 @@ function handleFormSubmission(e) {
 
   // 2) Email to recipients (HTML in the site's colors + plain-text fallback)
   var receivedAt = Utilities.formatDate(now, "Europe/Paris", "dd/MM/yyyy 'à' HH:mm");
+  // Same names as everywhere else — buildEmailHtml reads `phone`, `city` and
+  // `reportedIssue`. Handing it `tel`/`ville`/`probleme` printed four empty
+  // rows, and the fallbacks below never showed because the keys never matched.
   var data = {
-    tel: tel,
-    probleme: probleme || "Non précisé",
-    ville: ville || "Non précisée",
+    phone: tel,
+    reportedIssue: probleme || "Non précisé",
+    city: ville || "Non précisée",
     page: page || "/",
     receivedAt: receivedAt,
     diagUrl: diag.url || "",
@@ -140,8 +143,8 @@ function handleFormSubmission(e) {
   var textBody =
     "Nouvelle demande via le formulaire SOS Cumulus :\n\n" +
     "Téléphone : " + tel + "\n" +
-    "Type de problème : " + data.probleme + "\n" +
-    "Ville : " + data.ville + "\n" +
+    "Type de problème : " + data.reportedIssue + "\n" +
+    "Ville : " + data.city + "\n" +
     "Page d'origine : " + data.page + "\n" +
     "Reçue le : " + receivedAt + "\n" +
     (data.diagUrl
@@ -179,10 +182,14 @@ function openDiagnosisCase(tel, ville, probleme) {
       method: "post",
       contentType: "application/json",
       headers: { "x-lead-secret": secret },
+      // Keys are the API contract (shared/types.ts LeadRequest), not the form's
+      // French field names: `phone`, not `tel`. Sending the form's names got a
+      // 400 on every submission, silently — the lead was emailed and no
+      // diagnosis file was ever opened.
       payload: JSON.stringify({
-        tel: tel,
-        ville: ville,
-        probleme: probleme,
+        phone: tel,
+        city: ville,
+        reportedIssue: probleme,
         source: "formulaire_site",
       }),
       muteHttpExceptions: true,
@@ -624,7 +631,18 @@ function buildSafetyAlertHtml(d, reasons) {
  * Idempotent: re-running rewrites the rules cleanly.
  */
 function setupStatusColumn() {
-  var sh = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+
+  // Dates are written as real Date values so the column stays sortable, and a
+  // Sheet renders them in its own timezone — not the script's. Left on the
+  // account default (America/Los_Angeles) every timestamp read nine hours
+  // early. Formatting to a string here would have fixed the display and broken
+  // the sort.
+  if (ss.getSpreadsheetTimeZone() !== "Europe/Paris") {
+    ss.setSpreadsheetTimeZone("Europe/Paris");
+  }
+
+  var sh = ss.getSheets()[0];
   var range = sh.getRange("F2:F2000");
   var labels = STATUSES.map(function (s) { return s.label; });
 
