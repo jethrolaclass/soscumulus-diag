@@ -212,9 +212,9 @@ export type ScreenId = (typeof SCREEN_ORDER)[number] | 's4b' | 's-stop';
 
 export const SCREEN_META: Record<ScreenId, { label: string; pct: number }> = {
   s0: { label: 'Étape 1 sur 6 · Sécurité', pct: 8 },
-  s1: { label: 'Étape 2 sur 6 · Photo 1', pct: 24 },
-  s2: { label: 'Étape 3 sur 6 · Photo 2', pct: 40 },
-  s3: { label: 'Étape 4 sur 6 · Photo 3', pct: 56 },
+  s1: { label: "Étape 2 sur 6 · Photo de l'étiquette", pct: 24 },
+  s2: { label: 'Étape 3 sur 6 · Photo du chauffe-eau', pct: 40 },
+  s3: { label: 'Étape 4 sur 6 · Photo de la fuite', pct: 56 },
   s4: { label: 'Étape 5 sur 6 · Le problème', pct: 72 },
   s4b: { label: 'Étape 5 sur 6 · Bandeau', pct: 78 },
   s5: { label: 'Étape 6 sur 6 · Vous', pct: 88 },
