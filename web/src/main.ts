@@ -33,6 +33,15 @@ interface CaptureUi {
   busy: boolean;
   /** The client may keep a rejected photo: we never block them. */
   keepOffered: boolean;
+  /**
+   * The reading held in state describes the photo currently on screen.
+   *
+   * False from the moment a new capture replaces the preview until its own
+   * analysis comes back. Without it the previous reading stays under the new
+   * photo for the whole upload and vision round trip — a client comparing the
+   * two would be checking last shot's figures against this shot's label.
+   */
+  analysisMatchesShot: boolean;
 }
 
 const state = {
@@ -62,7 +71,13 @@ const state = {
 };
 
 function emptyCaptureUi(): CaptureUi {
-  return { previewUrl: null, verdict: null, busy: false, keepOffered: false };
+  return {
+    previewUrl: null,
+    verdict: null,
+    busy: false,
+    keepOffered: false,
+    analysisMatchesShot: true,
+  };
 }
 
 const app = document.getElementById('app')!;
@@ -271,7 +286,7 @@ function photoScreen(slot: PhotoSlot): string {
            </figure>
            ${verdictHtml(ui)}`
     }
-    ${slot === 1 ? nameplateReadback(p.analysis) : ''}
+    ${slot === 1 && ui.analysisMatchesShot ? nameplateReadback(p.analysis) : ''}
     ${ui.keepOffered ? `<button class="skip" data-keep="${slot}">Garder cette photo quand même</button>` : ''}
     ${
       // The readback promises "retake and we will read it again" — the promise
@@ -688,6 +703,8 @@ async function onFile(event: Event, slot: PhotoSlot): Promise<void> {
 
   if (ui.previewUrl) URL.revokeObjectURL(ui.previewUrl);
   ui.previewUrl = normalized.previewUrl;
+  // From here the photo on screen is not the one that was read.
+  ui.analysisMatchesShot = false;
 
   const attempts = state.data!.photos[slot].attempts;
   const local = localGuidance(normalized.quality.verdict);
@@ -738,6 +755,7 @@ async function upload(slot: PhotoSlot, blob: Blob): Promise<void> {
   }
 
   state.data = updated;
+  ui.analysisMatchesShot = true;
   const analysis = updated.photos[slot].analysis;
   const attempts = updated.photos[slot].attempts;
 
