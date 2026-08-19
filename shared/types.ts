@@ -105,6 +105,12 @@ export interface Nameplate {
   capacityLiters: number | null;
   powerWatts: number | null;
   serial: string | null;
+  /**
+   * Digits printed under or beside the barcode, usually vertically along the
+   * label edge. Kept apart from `serial`: some labels carry both, and this one
+   * identifies the exact unit for warranty and parts ordering.
+   */
+  barcode: string | null;
   manufactureDate: string | null;
   type:
     | 'electric_immersion'

@@ -3,6 +3,7 @@ import type {
   Answers,
   Diagnosis,
   DiagnosisCase,
+  PhotoAnalysis,
   PhotoSlot,
   SafetyFlag,
 } from '../../shared/types';
@@ -264,11 +265,64 @@ function photoScreen(slot: PhotoSlot): string {
            </figure>`
     }
     ${verdictHtml(ui)}
+    ${slot === 1 ? nameplateReadback(p.analysis) : ''}
     ${ui.keepOffered ? `<button class="skip" data-keep="${slot}">Garder cette photo quand même</button>` : ''}
     ${p.skipped ? '' : `<div><button class="skip" data-skip="${slot}">${cfg.skipLabel}</button></div>`}
     <input class="sr" type="file" accept="image/*" capture="environment" id="file-${slot}">
   `;
 }
+
+/**
+ * What the model actually read off the nameplate, shown back to the client.
+ *
+ * This is the moment the journey stops feeling like a form: seeing "150 litres,
+ * 2500 W" appear off their own photo is the proof that the three minutes are
+ * buying something. It also catches a misreading while the client is still in
+ * front of the unit and can retake the shot.
+ *
+ * Nameplate only. Screens 2 and 3 produce assessments — clearance, likely leak
+ * origin — not readings: the client can neither confirm nor correct them, and
+ * showing "cuve percée" before a technician has confirmed it would alarm
+ * someone we have not called yet.
+ *
+ * Only fields actually read are listed; an empty row would advertise a failure
+ * the client can do nothing about.
+ */
+function nameplateReadback(analysis: PhotoAnalysis | null): string {
+  const n = analysis?.nameplate;
+  if (!n?.readable) return '';
+
+  const rows: Array<[string, string]> = [];
+  if (n.brand) rows.push(['Marque', n.brand]);
+  if (n.model) rows.push(['Référence', n.model]);
+  if (n.capacityLiters) rows.push(['Capacité', `${n.capacityLiters} litres`]);
+  if (n.powerWatts) rows.push(['Puissance', `${n.powerWatts} W`]);
+  if (n.barcode) rows.push(['Code-barres', n.barcode]);
+  if (n.serial) rows.push(['N° de série', n.serial]);
+  if (n.manufactureDate) rows.push(['Fabrication', n.manufactureDate]);
+  if (n.type !== 'unknown') rows.push(['Type', UNIT_TYPES[n.type]]);
+
+  if (rows.length === 0) return '';
+  return `
+    <div class="readback">
+      <p class="readback-title">Ce que nous avons lu sur votre photo</p>
+      ${rows
+        .map(
+          ([k, v]) =>
+            `<div class="row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></div>`,
+        )
+        .join('')}
+      <p class="readback-note">Une erreur ? Reprenez la photo, nous relirons.</p>
+    </div>`;
+}
+
+const UNIT_TYPES: Record<string, string> = {
+  electric_immersion: 'Électrique blindé',
+  electric_steatite: 'Électrique stéatite',
+  heat_pump: 'Thermodynamique',
+  gas: 'Gaz',
+  unknown: '',
+};
 
 function verdictHtml(ui: CaptureUi): string {
   if (!ui.verdict) return '';
@@ -581,7 +635,7 @@ async function onFile(event: Event, slot: PhotoSlot): Promise<void> {
 
   let normalized;
   try {
-    normalized = await normalizePhoto(file);
+    normalized = await normalizePhoto(file, slot);
   } catch {
     // Exotic format or undecodable file: we have no usable photo, but we do
     // not send the client into a wall — they can skip the step.

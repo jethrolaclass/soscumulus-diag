@@ -14,8 +14,20 @@
  * coordinates of the client's home.
  */
 
-/** Target long edge. Aligned with the API's image-token tier. */
-const MAX_EDGE = 1568;
+/**
+ * Target long edge, per photo slot.
+ *
+ * The nameplate gets more pixels than the rest because it is the only shot
+ * where the job is reading characters — and the barcode digits, printed
+ * sideways in a few millimetres, are the finest text on the label. Opus 5
+ * accepts up to 2576 px on the long edge; below roughly 1500 those digits stop
+ * resolving and the model rightly returns null rather than guess.
+ *
+ * The other two shots are judged on shape and layout, where 1568 is ample and
+ * the extra image tokens would buy nothing.
+ */
+const MAX_EDGE_BY_SLOT: Record<number, number> = { 1: 2576, 2: 1568, 3: 1568 };
+const DEFAULT_MAX_EDGE = 1568;
 const JPEG_QUALITY = 0.85;
 
 /** Size of the centre crop analysed for sharpness. */
@@ -58,10 +70,14 @@ const THRESHOLDS = {
  * Decode, straighten, resize and re-encode to JPEG.
  * Throws when the browser cannot decode the file.
  */
-export async function normalizePhoto(file: File): Promise<NormalizedPhoto> {
+export async function normalizePhoto(
+  file: File,
+  slot?: number,
+): Promise<NormalizedPhoto> {
   const bitmap = await decode(file);
 
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  const maxEdge = (slot && MAX_EDGE_BY_SLOT[slot]) || DEFAULT_MAX_EDGE;
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
   const height = Math.round(bitmap.height * scale);
 

@@ -5,8 +5,9 @@ import { getCase, logEvent, markSkipped, recordUpload, saveAnalysis } from '../l
 import { badRequest, json, notFound, parseSlot } from '../lib/http';
 
 /**
- * Safety cap. The front end normalises to ~300 KB; beyond 8 MB this is either
- * a bypass of the front end or a normalisation bug.
+ * Safety cap. The front end normalises to ~300 KB, or up to ~1 MB for the
+ * nameplate, which is sent at 2576 px so the barcode digits resolve. Beyond
+ * 8 MB this is either a bypass of the front end or a normalisation bug.
  */
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 

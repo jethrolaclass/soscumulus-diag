@@ -167,6 +167,24 @@ p { margin: 0 0 12px; }
 .learned { margin-top: 8px; font-size: 14px; color: var(--navy); font-weight: 600; }
 .skip { background: none; border: none; color: var(--muted); font: inherit; font-size: 15px; text-decoration: underline; padding: 8px 0; cursor: pointer; }
 
+/* Readback of what the model extracted — the proof the photo was worth taking. */
+.readback {
+  margin-top: 10px; background: #fff; border: 1px solid var(--line);
+  border-radius: 14px; padding: 14px 16px;
+}
+.readback-title {
+  margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .5px;
+  text-transform: uppercase; color: var(--muted);
+}
+.readback .row {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 15px;
+}
+.readback .row:last-of-type { border-bottom: none; }
+.readback .k { color: var(--muted); }
+.readback .v { font-weight: 600; text-align: right; word-break: break-word; }
+.readback-note { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+
 /* ---------- Actions ---------- */
 .actions {
   position: absolute; left: 0; right: 0; bottom: 0;

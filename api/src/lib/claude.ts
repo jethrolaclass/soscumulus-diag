@@ -119,6 +119,12 @@ const SLOT_PROMPTS: Record<PhotoSlot, string> = {
 
 Lis l'étiquette caractère par caractère. La capacité est en litres, la puissance en watts. Le type se déduit des mentions présentes : une résistance stéatite est souvent annoncée explicitement, un modèle blindé mentionne parfois « thermoplongeur », un thermodynamique porte une mention de pompe à chaleur ou un COP, un modèle gaz affiche un débit calorifique en kW.
 
+Le code-barres mérite une attention particulière : ses chiffres sont presque toujours imprimés **à la verticale**, le long du bord gauche ou droit de l'étiquette, tournés de 90 degrés par rapport au reste du texte. C'est pour cette raison qu'on les oublie. Ils forment une suite de quatorze à seize chiffres qui identifie l'appareil exact — c'est ce qui permet de commander la bonne pièce et de vérifier une garantie, donc l'information la plus utile de toute l'étiquette après la référence.
+
+Prends le temps de faire pivoter mentalement cette zone et de lire les chiffres un par un. Reporte-les dans "barcode" sans espace ni séparateur. Si un seul chiffre reste douteux, le champ vaut null : un numéro à un chiffre près ne sert à rien et fait commander la mauvaise pièce.
+
+Le champ "serial" est distinct : il n'est renseigné que si l'étiquette porte un numéro de série explicitement libellé comme tel, en plus du code-barres.
+
 Si l'étiquette est présente mais qu'aucun caractère n'est lisible, nameplate.readable vaut false et tous les champs valent null.`,
 
   2: `Photo demandée : le chauffe-eau en entier, dans son environnement.

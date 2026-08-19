@@ -52,6 +52,7 @@ const NAMEPLATE: JsonSchema = {
     'capacityLiters',
     'powerWatts',
     'serial',
+    'barcode',
     'manufactureDate',
     'type',
   ],
@@ -68,6 +69,11 @@ const NAMEPLATE: JsonSchema = {
     capacityLiters: { type: nullable('integer') },
     powerWatts: { type: nullable('integer') },
     serial: { type: nullable('string') },
+    barcode: {
+      type: nullable('string'),
+      description:
+        'Digits of the barcode, read one by one. null if a single digit is uncertain.',
+    },
     manufactureDate: {
       type: nullable('string'),
       description: 'As printed, unreformatted (e.g. "03/2016", "2016").',
