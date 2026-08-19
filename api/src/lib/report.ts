@@ -109,8 +109,20 @@ export async function pushReport(
         createdAt: diagnosisCase.createdAt,
       }),
     });
-    if (!res.ok) throw new Error(`Apps Script ${res.status}`);
-    await logEvent(env, token, 'report_generated', diagnosisCase.ref);
+    // A 200 is not a success. Apps Script answers 200 to everything — its own
+    // errors are a JSON body with `ok: false`, and an unreachable or
+    // unauthorised deployment answers an HTML page through a redirect. Trusting
+    // the status alone logged "report generated" on files that never existed.
+    const answer = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      error?: string;
+      doc?: string;
+    } | null;
+    if (!res.ok || !answer?.ok) {
+      const detail = answer?.error ?? (answer ? 'réponse inattendue' : 'réponse non JSON');
+      throw new Error(`Apps Script ${res.status} — ${detail}`);
+    }
+    await logEvent(env, token, 'report_generated', `${diagnosisCase.ref} ${answer.doc ?? ''}`);
   } catch (err) {
     // The diagnosis is already stored: the report can be replayed from the
     // event log without the client having to redo anything.
