@@ -158,9 +158,21 @@ function resumeScreen(d: DiagnosisCase): ScreenId {
 /* Rendering                                                           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Screen the DOM currently holds, so a re-render can tell arriving somewhere
+ * new from redrawing where the client already is.
+ */
+let renderedScreen: ScreenId | null = null;
+
 function render(): void {
   const d = state.data;
   const meta = SCREEN_META[state.screen];
+
+  // The whole tree is replaced on every render, which resets the scroll to the
+  // top on its own. Fine when arriving on a screen, wrong when the client just
+  // picked an answer halfway down one: they would be thrown back up mid-choice.
+  const sameScreen = renderedScreen === state.screen;
+  const scrollTop = sameScreen ? (app.querySelector('.body')?.scrollTop ?? 0) : 0;
 
   app.innerHTML = `
     <header class="top">
@@ -178,7 +190,10 @@ function render(): void {
   `;
 
   bind();
-  app.querySelector('.body')?.scrollTo({ top: 0 });
+
+  const body = app.querySelector('.body');
+  if (body) body.scrollTop = scrollTop;
+  renderedScreen = state.screen;
 }
 
 /**
