@@ -241,7 +241,7 @@ absente n'est simplement pas remplacée :
 
 | Dossier | Client | Appareil | Diagnostic |
 |---|---|---|---|
-| `{{REF}}` `{{DATE}}` | `{{TEL}}` `{{VILLE}}` | `{{MARQUE}}` `{{MODELE}}` | `{{SYNTHESE}}` `{{CAUSE}}` |
+| `{{REF}}` `{{DATE}}` | `{{NOM}}` `{{ADRESSE}}` `{{TEL}}` `{{VILLE}}` | `{{MARQUE}}` `{{MODELE}}` | `{{SYNTHESE}}` `{{CAUSE}}` |
 | `{{PROBLEME}}` | `{{OCCUPANT}}` `{{ACCES}}` | `{{CAPACITE}}` `{{SERIE}}` | `{{ACTION}}` `{{PIECES}}` |
 | | `{{DISPO}}` | `{{APPAREIL}}` `{{PLAQUE}}` | `{{URGENCE}}` `{{CONFIANCE}}` |
 | | | `{{ECRAN}}` `{{BANDEAU}}` `{{VIDEO}}` | `{{VISITE}}` `{{DUREE}}` `{{NOTES}}` |

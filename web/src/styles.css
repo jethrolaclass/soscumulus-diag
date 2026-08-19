@@ -315,6 +315,40 @@ p { margin: 0 0 12px; }
 .readback .v { font-weight: 600; text-align: right; word-break: break-word; }
 .readback-note { margin: 20px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
 
+/* ---------- Text fields ---------- */
+
+.pair { display: flex; gap: 10px; }
+.pair .field { flex: 1; min-width: 0; }
+.field { display: block; margin: 10px 0 0; }
+.field span {
+  display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+  margin-bottom: 4px;
+}
+.field input {
+  width: 100%; font: inherit; font-size: 17px; color: var(--ink);
+  padding: 13px 14px; background: #fff;
+  border: 1.5px solid var(--line); border-radius: 12px;
+}
+.field input:focus {
+  outline: none; border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy);
+}
+
+/* Suggestions sit in the flow rather than floating: an overlay list on a phone
+   lands under the thumb and over the field being typed into. */
+.suggest:not(:empty) {
+  margin-top: 6px; border: 1px solid var(--line); border-radius: 12px;
+  overflow: hidden; background: #fff;
+}
+.hit {
+  display: block; width: 100%; text-align: left; font: inherit; font-size: 15px;
+  padding: 12px 14px; background: none; border: none;
+  border-bottom: 1px solid var(--line); color: var(--ink); cursor: pointer;
+}
+.hit:last-child { border-bottom: none; }
+.hit:hover, .hit:focus { background: #eef2f8; }
+/* A street or a commune is not a doorstep — offered, but not as an equal. */
+.hit.vague { color: var(--muted); }
+
 /* ---------- Actions ---------- */
 .actions {
   position: absolute; left: 0; right: 0; bottom: 0;

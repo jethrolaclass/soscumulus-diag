@@ -253,6 +253,9 @@ function buildReport(d) {
 
   var fields = {
     "{{REF}}": d.ref || "",
+    "{{NOM}}": [(d.answers || {}).firstName, (d.answers || {}).lastName]
+      .filter(String).join(" ").trim(),
+    "{{ADRESSE}}": (d.answers || {}).address || d.city || "",
     "{{TEL}}": d.phone || "",
     "{{VILLE}}": d.city || "",
     "{{PROBLEME}}": d.reportedIssue || "",
@@ -375,7 +378,9 @@ function sendReportEmail_(d, urls) {
         '</p>' +
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
           emailRow_("Urgence", esc(urgency), true) +
-          emailRow_("Commune", esc(d.city || "non renseignée")) +
+          emailRow_("Client", esc(who_(d) || "non renseigné")) +
+          emailRow_("Adresse", esc((d.answers || {}).address || d.city || "non renseignée")) +
+          emailRow_("Téléphone", esc(d.phone || "")) +
           emailRow_("Appareil", esc(appliance)) +
           emailRow_("Cause probable", esc(diag.likelyCause || "à confirmer sur place")) +
           emailRow_("Pièces à prévoir", esc((diag.partsLikely || []).join(", ") || "à confirmer")) +
@@ -390,13 +395,14 @@ function sendReportEmail_(d, urls) {
 
     MailApp.sendEmail({
       to: RECIPIENTS.join(","),
-      subject: "📋 Diagnostic prêt — " + d.ref + " — " + (d.city || "commune non précisée") +
+      subject: "📋 Diagnostic prêt — " + d.ref + " — " + (who_(d) || d.city || "client") +
                " — urgence " + urgency.toLowerCase(),
       body:
         "Diagnostic à distance terminé.\n\n" +
         "Dossier : " + d.ref + "\n" +
+        "Client : " + (who_(d) || "non renseigné") + "\n" +
+        "Adresse : " + ((d.answers || {}).address || d.city || "non renseignée") + "\n" +
         "Téléphone : " + (d.phone || "") + "\n" +
-        "Commune : " + (d.city || "non renseignée") + "\n" +
         "Urgence : " + urgency + "\n" +
         "Appareil : " + appliance + "\n" +
         "Cause probable : " + (diag.likelyCause || "à confirmer sur place") + "\n\n" +
@@ -522,6 +528,12 @@ function json(obj) {
 
 function escapeRegex_(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** First and last name as one string, empty when neither was given. */
+function who_(d) {
+  var a = d.answers || {};
+  return [a.firstName, a.lastName].filter(String).join(" ").trim();
 }
 
 function nameplateOf_(d) {

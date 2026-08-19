@@ -121,8 +121,9 @@ header("Ordre d'intervention", [
 
 section("Client & lieu")
 add(tbl(HALF, [
-    [field("NOM ET PRÉNOM", " ", top=True), field("TÉLÉPHONE(S)", "{{TEL}}", top=True, bold=True)],
-    [field("ADRESSE COMPLÈTE — ÉTAGE, CODE, INTERPHONE", "{{VILLE}}"),
+    [field("NOM ET PRÉNOM", "{{NOM}}", top=True, bold=True),
+     field("TÉLÉPHONE(S)", "{{TEL}}", top=True, bold=True)],
+    [field("ADRESSE COMPLÈTE — ÉTAGE, CODE, INTERPHONE", "{{ADRESSE}}"),
      field("QUI SERA PRÉSENT SUR PLACE", " ")],
     [field("STATUT", "{{OCCUPANT}}"), field("PAYEUR SI DIFFÉRENT (NOM, CONTACT)", " ")],
     [field("ACCÈS — PLACARD, TRAPPE, CAVE, ESCALIER, STATIONNEMENT", "{{ACCES}}"),

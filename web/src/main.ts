@@ -10,6 +10,7 @@ import type {
 import { BLOCKING_SAFETY_FLAGS, isAnalyzedSlot } from '../../shared/types';
 import type { LocalVerdict } from '../../shared/types';
 import * as api from './lib/api';
+import { searchAddress } from './lib/address';
 import { cameraSupported, captureWithGuide } from './lib/camera';
 import { localGuidance, normalizePhoto } from './lib/image';
 import { extractFrames } from './lib/video';
@@ -254,7 +255,11 @@ function screenBody(): string {
     case 's4b':
       return panelScreen();
     case 's5':
-      return questionScreen('Vous et votre logement', 'Presque terminé', CONTEXT_QUESTIONS);
+      return (
+        `<p class="eyebrow">Vous et votre logement</p><h1>Presque terminé</h1>` +
+        contactBlock() +
+        CONTEXT_QUESTIONS.map((q) => `<div class="card">${questionBlock(q)}</div>`).join('')
+      );
     case 's6':
       return doneScreen();
   }
@@ -465,6 +470,41 @@ function questionScreen(eyebrow: string, title: string, questions: Question[]): 
   `;
 }
 
+/**
+ * Name and address — the two things the file cannot be delivered without.
+ *
+ * Asked last on purpose: by this point the client has seen their nameplate read
+ * back and knows the three minutes bought something. Asked on the first screen,
+ * a name and an address are just a form to fill.
+ */
+function contactBlock(): string {
+  const a = state.answers;
+  return `
+    <div class="card">
+      <h2>Où le technicien doit-il venir ?</h2>
+      <p class="hint">Ces informations ne servent qu'à préparer l'intervention.</p>
+      <div class="pair">
+        <label class="field">
+          <span>Prénom</span>
+          <input type="text" id="firstName" autocomplete="given-name"
+                 value="${escapeHtml(a.firstName ?? '')}" placeholder="Camille">
+        </label>
+        <label class="field">
+          <span>Nom</span>
+          <input type="text" id="lastName" autocomplete="family-name"
+                 value="${escapeHtml(a.lastName ?? '')}" placeholder="Martin">
+        </label>
+      </div>
+      <label class="field">
+        <span>Adresse complète</span>
+        <input type="text" id="address" autocomplete="street-address"
+               value="${escapeHtml(a.address ?? '')}"
+               placeholder="Commencez à taper votre adresse…">
+      </label>
+      <div class="suggest" id="suggest" role="listbox"></div>
+    </div>`;
+}
+
 function questionBlock(q: Question): string {
   const current = state.answers[q.key];
   const isSelected = (value: unknown): boolean =>
@@ -583,7 +623,10 @@ function actionsBar(): string {
     }
   } else if (state.screen === 's5') {
     label = state.submitting ? 'Envoi…' : 'Envoyer mon dossier';
-    disabled = state.submitting || !CONTEXT_QUESTIONS.every(answered);
+    disabled =
+      state.submitting ||
+      !CONTEXT_QUESTIONS.every(answered) ||
+      !contactComplete();
   } else if (state.screen === 's6') {
     return '';
   }
@@ -630,8 +673,92 @@ function bind(): void {
       ?.addEventListener('change', (e) => onFile(e, slot));
   }
 
+  bindContact();
+
   app.querySelector<HTMLInputElement>('#file-panel')?.addEventListener('change', onVideo);
   app.querySelector<HTMLButtonElement>('[data-skip-panel]')?.addEventListener('click', onSkipPanel);
+}
+
+/**
+ * Text fields keep their own state and never trigger a re-render.
+ *
+ * Redrawing the tree on every keystroke would take the focus and the caret with
+ * it. The value is written straight into the answers and saved on blur, which
+ * is also when a phone keyboard closes.
+ */
+function bindContact(): void {
+  for (const key of ['firstName', 'lastName'] as const) {
+    const input = app.querySelector<HTMLInputElement>(`#${key}`);
+    if (!input) continue;
+    input.addEventListener('input', () => {
+      state.answers[key] = input.value;
+      refreshPrimary();
+    });
+    input.addEventListener('blur', () => persistAnswers());
+  }
+
+  const address = app.querySelector<HTMLInputElement>('#address');
+  const suggest = app.querySelector<HTMLElement>('#suggest');
+  if (!address || !suggest) return;
+
+  let debounce = 0;
+  let inflight: AbortController | null = null;
+
+  const close = () => {
+    suggest.innerHTML = '';
+  };
+
+  address.addEventListener('input', () => {
+    state.answers.address = address.value;
+    refreshPrimary();
+
+    window.clearTimeout(debounce);
+    inflight?.abort();
+    // A keystroke every few hundred milliseconds, not one request per letter:
+    // the network here is the client's, and it is already carrying photos.
+    debounce = window.setTimeout(() => {
+      inflight = new AbortController();
+      void searchAddress(address.value, inflight.signal)
+        .then((hits) => {
+          suggest.innerHTML = hits
+            .map(
+              (h) =>
+                `<button type="button" class="hit${h.precise ? '' : ' vague'}">${escapeHtml(h.label)}</button>`,
+            )
+            .join('');
+        })
+        // Aborted or unreachable: the typed address stands on its own.
+        .catch(() => close());
+    }, 250);
+  });
+
+  address.addEventListener('blur', () => {
+    persistAnswers();
+    // Delayed: a click on a suggestion fires after the blur.
+    window.setTimeout(close, 150);
+  });
+
+  suggest.addEventListener('mousedown', (e) => {
+    const hit = (e.target as HTMLElement).closest('.hit');
+    if (!hit) return;
+    e.preventDefault();
+    address.value = hit.textContent ?? '';
+    state.answers.address = address.value;
+    close();
+    refreshPrimary();
+    persistAnswers();
+  });
+}
+
+/**
+ * Re-enable the action button without redrawing the screen — the caret is in a
+ * text field and a render would take it away.
+ */
+function refreshPrimary(): void {
+  const primary = app.querySelector<HTMLButtonElement>('#primary');
+  if (!primary) return;
+  primary.disabled =
+    state.submitting || !CONTEXT_QUESTIONS.every(answered) || !contactComplete();
 }
 
 function onChoice(key: string, rawValue: string): void {
@@ -664,6 +791,15 @@ function onChoice(key: string, rawValue: string): void {
 }
 
 const ALL_QUESTIONS = [SAFETY_QUESTION, ...PROBLEM_QUESTIONS, ...CONTEXT_QUESTIONS];
+
+/**
+ * A file cannot be delivered to a phone number. Blocking here is deliberate and
+ * is the one place the journey does gate — a van cannot be sent to a commune.
+ */
+function contactComplete(): boolean {
+  const a = state.answers;
+  return Boolean(a.firstName?.trim() && a.lastName?.trim() && a.address?.trim());
+}
 
 /** An empty multiple-choice array is an unanswered question, not an answer. */
 function answered(q: Question): boolean {

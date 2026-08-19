@@ -58,6 +58,21 @@ export type CaseStatus =
 
 export interface Answers {
   safety: SafetyFlag[];
+  /**
+   * Who the technician asks for at the door, and where the door is.
+   *
+   * The website form gives a phone number and a commune — enough to call back,
+   * not enough to drive out. These are collected on the last screen, where the
+   * client has already seen what the three minutes bought them.
+   *
+   * The address is one line, as the address service returns it: that is what
+   * goes into a van's satnav. Structuring it into number, street and postcode
+   * would buy nothing today and would have to be kept in step with a service
+   * that already does the parsing.
+   */
+  firstName?: string;
+  lastName?: string;
+  address?: string;
   /** Where water is visible. */
   waterLocation?: 'top' | 'bottom' | 'safety_group' | 'nowhere';
   /** Is there any hot water left? */
