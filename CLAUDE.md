@@ -36,6 +36,14 @@ de cause.
    l'étiquette ». Ne pas durcir les seuils de `web/src/lib/image.ts` sans les
    avoir recalibrés sur de vraies photos de terrain.
 
+   La netteté se lit **tuile par tuile**, jamais sur un seul recadrage central.
+   La variance du laplacien mesure de la haute fréquence, donc de la texture :
+   un cumulus est un grand cylindre blanc et mat, et une photo parfaitement
+   nette de son flanc n'en contient presque pas. Mesurée au centre, elle était
+   déclarée floue — y compris la photo d'exemple montrée au client comme le
+   modèle à suivre. Une photo nette a du détail *quelque part* ; une photo
+   floue n'en a nulle part.
+
 4. **On ne redemande jamais une information déjà connue.** Le formulaire du
    site fournit téléphone, ville et problème. Ils sont rappelés à l'écran,
    jamais ressaisis.
