@@ -22,7 +22,7 @@ fi
 
 cd "$(dirname "$0")/../api"
 
-npx wrangler d1 execute soscumulus-diag "$REMOTE" --command "
+npx wrangler d1 execute soscumulus-diag "$REMOTE" -y --command "
   UPDATE cases
      SET status = 'open',
          answers = '{}',
@@ -40,6 +40,7 @@ npx wrangler d1 execute soscumulus-diag "$REMOTE" --command "
          attempts = 0,
          analysis = NULL,
          analysis_status = 'idle',
+         local_verdict = NULL,
          updated_at = datetime('now')
    WHERE case_token = '$TOKEN';
 "
