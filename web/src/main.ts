@@ -752,9 +752,11 @@ async function processCapture(slot: PhotoSlot, file: File): Promise<void> {
   const attempts = state.data!.photos[slot].attempts;
   const local = localGuidance(normalized.quality.verdict);
 
-  // Local pre-filter: avoids an upload and an API call for an obviously
-  // unusable photo. Once only — on the second attempt we send regardless, and
-  // the model will give more useful advice.
+  // Local pre-filter, on every slot: it costs nothing and catches the finger
+  // over the lens or the unlit cellar before the upload. Once only — on the
+  // second attempt the photo goes through whatever it looks like. On the
+  // nameplate the model then gives better advice than we can; elsewhere it is
+  // the technician who looks, and neither is a reason to hold the client.
   if (local && attempts === 0) {
     ui.busy = false;
     ui.verdict = { tone: 'ko', text: local };
