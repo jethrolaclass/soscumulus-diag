@@ -256,7 +256,7 @@ p { margin: 0 0 12px; }
 .readback .row:last-of-type { border-bottom: none; }
 .readback .k { color: var(--muted); }
 .readback .v { font-weight: 600; text-align: right; word-break: break-word; }
-.readback-note { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.readback-note { margin: 20px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
 
 /* ---------- Actions ---------- */
 .actions {
