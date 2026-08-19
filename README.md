@@ -215,6 +215,17 @@ Propriétés du script à renseigner (Paramètres du projet → Propriétés) :
 Puis relancer `setupStatusColumn` une fois (la colonne G accueille désormais le
 lien de diagnostic), et créer le déclencheur mensuel sur `purgeArchives`.
 
+Le modèle Docs est **généré**, pas dessiné à la main :
+
+```bash
+python3 scripts/build-report-template.py
+```
+
+produit `scripts/fiche-intervention.docx`, à déposer sur Drive **en le
+convertissant en Google Doc** ; son id va dans `TEMPLATE_ID`. Deux choses
+doivent être exactes et ne survivent ni à un import HTML ni à une conversion de
+PDF — la mise en page A4 et les largeurs de colonnes —, d'où le générateur.
+
 Balises disponibles dans le modèle Docs — toutes facultatives, une balise
 absente n'est simplement pas remplacée :
 
