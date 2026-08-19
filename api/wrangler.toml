@@ -27,7 +27,7 @@ EMERGENCY_PHONE   = "+33621560983"
 # Phase de test : seuls ces numéros reçoivent réellement un SMS. Les autres
 # dossiers sont créés normalement et leur lien reste valide, mais rien ne part.
 # ‼️ VIDER CETTE VARIABLE POUR LA MISE EN SERVICE.
-SMS_ALLOWLIST     = "0788089128"
+SMS_ALLOWLIST     = "0788089128,0621560983,0699872414"
 LOG_USAGE         = "true"
 
 [[d1_databases]]
