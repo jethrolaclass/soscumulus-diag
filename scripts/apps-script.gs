@@ -244,7 +244,7 @@ function buildReport(d) {
     // file, at seven days — the Doc remains readable without it afterwards.
     "{{VIDEO}}": d.panelVideoUrl || "Aucune vidéo",
     "{{ACCES}}": (d.answers && d.answers.access) || "",
-    "{{DISPO}}": (d.answers && d.answers.availability) || "",
+    "{{DISPO}}": availabilityText_(d.answers && d.answers.availability),
   };
   for (var key in fields) body.replaceText(escapeRegex_(key), fields[key]);
 
@@ -391,6 +391,22 @@ function escapeRegex_(s) {
 function nameplateOf_(d) {
   var p1 = (d.photos || []).filter(function (p) { return p.slot === 1; })[0];
   return (p1 && p1.analysis && p1.analysis.nameplate) || {};
+}
+
+/**
+ * Reachability slots. Several may be given — the client is asked for every
+ * moment that suits, not the best one.
+ */
+function availabilityText_(slots) {
+  if (!slots || !slots.length) return "Dès que possible";
+  var labels = {
+    morning: "le matin",
+    midday: "vers midi",
+    afternoon: "l'après-midi",
+    evening: "en fin de journée",
+  };
+  var text = slots.map(function (s) { return labels[s] || s; }).join(", ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /**

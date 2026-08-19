@@ -18,6 +18,11 @@ export interface Choice {
   icon: string;
   /** Selected-state tint — marks a hazard or the absence of one. */
   tone?: 'danger' | 'safe';
+  /**
+   * On a multiple-choice question, ticking it clears every other answer, and
+   * ticking another clears it. "None of these" only means anything alone.
+   */
+  exclusive?: boolean;
 }
 
 export interface Question {
@@ -41,7 +46,7 @@ export const SAFETY_QUESTION: Question = {
       icon: '💧',
       tone: 'danger',
     },
-    { value: 'none', label: 'Aucun de ces cas', icon: '✓', tone: 'safe' },
+    { value: 'none', label: 'Aucun de ces cas', icon: '✓', tone: 'safe', exclusive: true },
   ],
 };
 
@@ -102,6 +107,8 @@ export const CONTEXT_QUESTIONS: Question[] = [
   {
     key: 'availability',
     title: 'Vous êtes joignable plutôt…',
+    hint: 'Touchez tous les moments qui vous conviennent.',
+    multi: true,
     choices: [
       { value: 'morning', label: 'Le matin', icon: '🌅' },
       { value: 'midday', label: 'Vers midi', icon: '☀️' },

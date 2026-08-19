@@ -1,11 +1,11 @@
 import './styles.css';
 import type {
   Answers,
+  Availability,
   Diagnosis,
   DiagnosisCase,
   PhotoAnalysis,
   PhotoSlot,
-  SafetyFlag,
 } from '../../shared/types';
 import { BLOCKING_SAFETY_FLAGS, isAnalyzedSlot } from '../../shared/types';
 import type { LocalVerdict } from '../../shared/types';
@@ -530,14 +530,20 @@ function doneScreen(): string {
   `;
 }
 
-const AVAILABILITY_LABELS: Record<string, string> = {
-  morning: 'Le matin',
-  midday: 'Vers midi',
-  afternoon: "L'après-midi",
-  evening: 'En fin de journée',
+// Lower case, because they are joined into one sentence and only the first
+// word is capitalised.
+const AVAILABILITY_LABELS: Record<Availability, string> = {
+  morning: 'le matin',
+  midday: 'vers midi',
+  afternoon: "l'après-midi",
+  evening: 'en fin de journée',
 };
-const availabilityLabel = (a?: string) =>
-  a ? (AVAILABILITY_LABELS[a] ?? '—') : 'Dès que possible';
+
+function availabilityLabel(slots?: Availability[]): string {
+  if (!slots?.length) return 'Dès que possible';
+  const joined = slots.map((s) => AVAILABILITY_LABELS[s] ?? '—').join(', ');
+  return joined.charAt(0).toUpperCase() + joined.slice(1);
+}
 
 /* ------------------------------------------------------------------ */
 /* Action bar                                                          */
@@ -562,9 +568,9 @@ function actionsBar(): string {
       label = p.attempts > 0 ? '📷 Reprendre la photo' : '📷 Prendre la photo';
     }
   } else if (state.screen === 's0') {
-    disabled = !(state.answers.safety?.length ?? 0);
+    disabled = !answered(SAFETY_QUESTION);
   } else if (state.screen === 's4') {
-    disabled = !PROBLEM_QUESTIONS.every((q) => state.answers[q.key]);
+    disabled = !PROBLEM_QUESTIONS.every(answered);
   } else if (state.screen === 's4b') {
     const panel = state.data!.panel;
     if (state.panelUi.busy) {
@@ -577,7 +583,7 @@ function actionsBar(): string {
     }
   } else if (state.screen === 's5') {
     label = state.submitting ? 'Envoi…' : 'Envoyer mon dossier';
-    disabled = state.submitting || !CONTEXT_QUESTIONS.every((q) => state.answers[q.key]);
+    disabled = state.submitting || !CONTEXT_QUESTIONS.every(answered);
   } else if (state.screen === 's6') {
     return '';
   }
@@ -629,32 +635,70 @@ function bind(): void {
 }
 
 function onChoice(key: string, rawValue: string): void {
-  const q = [SAFETY_QUESTION, ...PROBLEM_QUESTIONS, ...CONTEXT_QUESTIONS].find(
-    (x) => x.key === key,
-  )!;
+  const q = ALL_QUESTIONS.find((x) => x.key === key)!;
+  // The DOM only carries strings, and the answer shape varies by question:
+  // this is the one place where the two meet, so the cast lives here.
+  const answers = state.answers as unknown as Record<string, unknown>;
 
   if (q.multi) {
-    const current = new Set((state.answers.safety ?? []) as SafetyFlag[]);
-    const value = rawValue as SafetyFlag;
-    // "None of these" is exclusive: ticking it clears the hazards, and ticking
-    // a hazard clears it.
-    if (value === 'none') {
+    const current = new Set((answers[key] as string[] | undefined) ?? []);
+    const exclusive = q.choices.filter((c) => c.exclusive).map((c) => c.value);
+
+    if (exclusive.includes(rawValue)) {
       current.clear();
-      current.add('none');
+      current.add(rawValue);
     } else {
-      current.delete('none');
-      current.has(value) ? current.delete(value) : current.add(value);
+      for (const e of exclusive) current.delete(e);
+      current.has(rawValue) ? current.delete(rawValue) : current.add(rawValue);
     }
-    state.answers.safety = [...current];
+
+    // Stored in the order the question offers them: "le matin, le soir" reads
+    // like a schedule, "le soir, le matin" like a list of clicks.
+    answers[key] = q.choices.filter((c) => current.has(c.value)).map((c) => c.value);
   } else {
-    (state.answers as unknown as Record<string, unknown>)[key] = rawValue;
+    answers[key] = rawValue;
   }
 
   render();
   void persistAnswers();
 }
 
-async function persistAnswers(): Promise<void> {
+const ALL_QUESTIONS = [SAFETY_QUESTION, ...PROBLEM_QUESTIONS, ...CONTEXT_QUESTIONS];
+
+/** An empty multiple-choice array is an unanswered question, not an answer. */
+function answered(q: Question): boolean {
+  const value = state.answers[q.key];
+  return q.multi ? Array.isArray(value) && value.length > 0 : Boolean(value);
+}
+
+/**
+ * Answers are saved one request at a time, and only the latest state is sent.
+ *
+ * Every tap used to fire its own request, each carrying the whole answer set.
+ * Four taps on a multiple-choice question put four writes in flight, and the
+ * one that landed last won — which is not the one the client made last. On the
+ * question asking when to call them back, that files the wrong window.
+ *
+ * Coalescing also cuts the number of requests, which is not nothing on the
+ * network these clients are on.
+ */
+let saving: Promise<void> | null = null;
+let saveQueued = false;
+
+function persistAnswers(): void {
+  if (saving) {
+    saveQueued = true;
+    return;
+  }
+  saving = sendAnswers();
+}
+
+/** Awaits whatever is in flight, so submission never overtakes a last tap. */
+async function flushAnswers(): Promise<void> {
+  while (saving) await saving;
+}
+
+async function sendAnswers(): Promise<void> {
   try {
     const res = await api.patchAnswers(state.token, state.answers);
     if (res.status === 'safety_stop') {
@@ -665,6 +709,12 @@ async function persistAnswers(): Promise<void> {
     // Silent: answers are held locally and will be sent again on submission.
     // Showing a network error here would only worry the client without giving
     // them anything to fix.
+  } finally {
+    saving = null;
+    if (saveQueued) {
+      saveQueued = false;
+      persistAnswers();
+    }
   }
 }
 
@@ -1055,6 +1105,7 @@ async function onSubmit(): Promise<void> {
   state.submitting = true;
   render();
   try {
+    await flushAnswers();
     const res = await api.submit(state.token);
     state.diagnosis = res.diagnosis;
     state.data = await api.getCase(state.token);

@@ -150,7 +150,7 @@ export async function getCase(
     phone: row.phone,
     city: row.city,
     reportedIssue: row.reported_issue,
-    answers: JSON.parse(row.answers) as Answers,
+    answers: readAnswers(row.answers),
     photos,
     panel: {
       captured: row.panel_frames > 0,
@@ -195,6 +195,23 @@ export async function setStatus(
   )
     .bind(status, now(), token)
     .run();
+}
+
+/**
+ * Answers as stored, brought to the current shape.
+ *
+ * `availability` used to hold a single slot and now holds a list. Cases opened
+ * before the change still carry the old form, and every reader downstream —
+ * page, report, synthesis — would choke on it. Converting once here beats
+ * guarding in three places.
+ */
+function readAnswers(raw: string): Answers {
+  const answers = JSON.parse(raw) as Answers;
+  const availability = answers.availability as unknown;
+  if (typeof availability === 'string') {
+    return { ...answers, availability: [availability] as Answers['availability'] };
+  }
+  return answers;
 }
 
 export async function saveAnswers(

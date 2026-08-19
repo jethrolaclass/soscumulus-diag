@@ -66,8 +66,15 @@ export interface Answers {
   hasPanel?: 'yes' | 'no';
   occupancy?: 'owner' | 'tenant' | 'manager';
   access?: 'easy' | 'cupboard' | 'hatch' | 'basement';
-  availability?: 'morning' | 'midday' | 'afternoon' | 'evening';
+  /**
+   * Several slots, not one: almost nobody is reachable at a single hour of the
+   * day, and forcing a choice buys a wrong answer rather than a precise one.
+   * Stored in the order the question offers them, never in click order.
+   */
+  availability?: Availability[];
 }
+
+export type Availability = 'morning' | 'midday' | 'afternoon' | 'evening';
 
 /**
  * Verdict of the check the browser runs on the photo before sending it —
