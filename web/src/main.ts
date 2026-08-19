@@ -9,7 +9,7 @@ import type {
 } from '../../shared/types';
 import { BLOCKING_SAFETY_FLAGS } from '../../shared/types';
 import * as api from './lib/api';
-import { cameraSupported, captureNameplate } from './lib/camera';
+import { cameraSupported, captureWithGuide } from './lib/camera';
 import { localGuidance, normalizePhoto } from './lib/image';
 import { extractFrames } from './lib/video';
 import {
@@ -705,14 +705,14 @@ async function startCapture(slot: PhotoSlot): Promise<void> {
 
   let shot: Blob | null;
   try {
-    shot = await captureNameplate(guide);
+    shot = await captureWithGuide(guide);
   } catch {
     return void systemCamera();
   }
   // Backed out: leave the screen exactly as it was.
   if (!shot) return;
 
-  await processCapture(slot, new File([shot], 'nameplate.jpg', { type: 'image/jpeg' }));
+  await processCapture(slot, new File([shot], `slot-${slot}.jpg`, { type: 'image/jpeg' }));
 }
 
 async function onFile(event: Event, slot: PhotoSlot): Promise<void> {

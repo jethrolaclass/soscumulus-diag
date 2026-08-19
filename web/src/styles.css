@@ -200,21 +200,34 @@ p { margin: 0 0 12px; }
  * The dark surround is the guide's own box-shadow: one element, a rounded hole,
  * and no clip-path to reason about.
  *
- * 9:5 is measured on real French water-heater labels — 1.78 and 1.88 on the two
- * we have. It is a guide, not a crop: the whole frame is kept, and a label of
- * another shape simply overflows or under-fills the rectangle. What matters is
- * that the client comes close enough to resolve the barcode.
+ * The label window is 9:5, measured on real French water-heater labels — 1.78
+ * and 1.88 on the two we have. Either shape is a guide, not a crop: the whole
+ * frame is kept, and a subject of other proportions simply overflows or
+ * under-fills the rectangle. What matters is that the client comes close.
  */
 .cam-guide {
-  position: absolute; z-index: 1; left: 6%; right: 6%; top: 46%;
-  transform: translateY(-50%); aspect-ratio: 9 / 5;
+  position: absolute; z-index: 1;
   border-radius: 16px; border: 2px solid rgba(255, 255, 255, .92);
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .62);
 }
+.cam-guide.label {
+  left: 6%; right: 6%; top: 46%; transform: translateY(-50%); aspect-ratio: 9 / 5;
+}
+/*
+ * The whole frame, barely inset: this shot has to hold an entire appliance, so
+ * every pixel of framing counts. The controls sit over its lower edge rather
+ * than pushing it up — they are drawn on the live image, which stays visible.
+ */
+.cam-guide.full { inset: 50px; }
+/* Above the frame whatever its shape, and on its own ground: this text lands on
+   a ceiling, a white tank or a dark cellar, and has to read on all three. */
 .cam-hint {
-  position: absolute; z-index: 2; left: 0; right: 0; top: 7%;
-  margin: 0; padding: 0 24px; text-align: center;
-  color: #fff; font-size: 16px; font-weight: 600;
+  /* Insets on both sides rather than a centring transform: shrink-to-fit from
+     `left: 50%` only ever gets half the width, and the caption wrapped. */
+  position: absolute; z-index: 2; left: 16px; right: 16px; top: 12px;
+  width: fit-content; max-width: 100%; margin: 0 auto; padding: 8px 14px;
+  border-radius: 999px; background: rgba(0, 0, 0, .55);
+  text-align: center; color: #fff; font-size: 15px; font-weight: 600;
 }
 .cam-bar {
   position: absolute; z-index: 2; left: 0; right: 0; bottom: 0;
@@ -226,13 +239,20 @@ p { margin: 0 0 12px; }
   background: #fff; background-clip: padding-box;
   border: 4px solid rgba(255, 255, 255, .45); cursor: pointer;
 }
-/* Both sides are always rendered, torch or not: an empty spacer is what keeps
-   the shutter on the centre line. */
+/*
+ * Both sides are always rendered, torch or not: an empty spacer is what keeps
+ * the shutter on the centre line.
+ *
+ * On their own ground, like the caption. A water heater is white, and white
+ * text on a white tank is no text at all.
+ */
 .cam-side {
-  min-width: 72px; background: none; border: 0; padding: 8px;
-  color: #fff; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+  min-width: 72px; border: 0; padding: 9px 14px; border-radius: 999px;
+  background: rgba(0, 0, 0, .55);
+  color: #fff; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
 }
-.cam-side[data-cam="torch"] { text-align: right; font-size: 24px; }
+.cam-side[data-cam="torch"] { text-align: center; font-size: 22px; padding: 5px 14px; }
+.cam-side:empty { background: none; }
 .cam-side[aria-pressed="true"] { filter: drop-shadow(0 0 6px rgba(255, 214, 102, .9)); }
 .cam.shot-taken::after {
   content: ""; position: absolute; z-index: 3; inset: 0; background: #fff;
@@ -308,7 +328,7 @@ p { margin: 0 0 12px; }
 }
 .btn.primary { background: var(--orange); color: #fff; box-shadow: 0 8px 22px rgba(232, 85, 47, .35); }
 .btn.primary:disabled { background: #d9c9be; box-shadow: none; cursor: not-allowed; }
-.btn.ghost { background: none; color: var(--navy); margin-top: 8px; padding: 10px; font-weight: 600; font-size: 15px; }
+.btn.ghost { background: none; color: var(--navy); margin-top: 2px; padding: 6px 10px; font-weight: 600; font-size: 15px; }
 .btn:focus-visible { outline: 3px solid rgba(15, 45, 92, .35); }
 
 /* ---------- Safety stop ---------- */

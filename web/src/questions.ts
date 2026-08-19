@@ -135,11 +135,19 @@ export interface PhotoScreen {
     focus: string;
   };
   /**
-   * Caption of the framing guide, and the switch that turns it on: a slot that
-   * declares one is shot through the in-page camera, the others through the
-   * system camera app. Only the label needs the client at a set distance.
+   * Framing guide, and the switch that turns it on: a slot that declares one is
+   * shot through the in-page camera, the others through the system camera app.
+   * Only a slot with a distance to hold needs one.
    */
-  guide?: string;
+  guide?: {
+    /** Read over the live image, above the frame. */
+    hint: string;
+    /**
+     * `label` is a window cut to the shape of a nameplate; `full` is the frame
+     * itself, inset, for fitting a whole appliance as tightly as possible.
+     */
+    shape: 'label' | 'full';
+  };
 }
 
 export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
@@ -156,7 +164,7 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
       caption: "Net, bien éclairé, l'étiquette remplit l'image.",
       focus: '50% 55%',
     },
-    guide: "Placez l'étiquette dans le cadre",
+    guide: { hint: "Placez l'étiquette dans le cadre", shape: 'label' },
   },
   2: {
     slot: 2,
@@ -165,6 +173,7 @@ export const PHOTO_SCREENS: Record<PhotoSlot, PhotoScreen> = {
     lead: "Reculez de deux ou trois pas pour qu'on voie <b>l'appareil entier</b> et ce qu'il y a autour.",
     skipLabel: 'Je ne peux pas reculer davantage',
     skipConfirm: 'Noté — le technicien tiendra compte de la place disponible.',
+    guide: { hint: "Tout l'appareil, au plus près", shape: 'full' },
     example: {
       src: '/examples/overview.jpg',
       caption:

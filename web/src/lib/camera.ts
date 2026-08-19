@@ -1,15 +1,20 @@
 /**
- * In-page camera with a framing guide, for the nameplate shot only.
+ * In-page camera with a framing guide.
  *
- * The other two slots keep the system camera app: framing a whole appliance or
- * a wet floor needs no guide, and the system app focuses, exposes and denoises
- * better than anything a page can drive. Here framing *is* the problem — a
- * label shot from a metre away comes back sharp, passes every quality check,
- * and is still useless for reading a barcode printed two millimetres tall. The
- * guide is what puts the client close enough.
+ * A slot that carries no guide keeps the system camera app, which focuses,
+ * exposes and denoises better than anything a page can drive. We only take that
+ * over where framing *is* the problem: a label shot from a metre away comes
+ * back sharp, passes every quality check, and is still useless for reading a
+ * barcode printed two millimetres tall; an appliance shot from across the room
+ * occupies a fifth of the frame. The guide is what sets the distance.
  *
  * Nothing here is load-bearing: any failure falls back to the system camera.
  */
+
+export interface Guide {
+  hint: string;
+  shape: 'label' | 'full';
+}
 
 /**
  * The torch is real on Android Chrome but absent from the DOM typings, on both
@@ -32,7 +37,7 @@ export function cameraSupported(): boolean {
  * Rejects when the camera cannot be opened at all — permission refused, no
  * device, browser refusal. The caller then opens the system camera instead.
  */
-export async function captureNameplate(hint: string): Promise<Blob | null> {
+export async function captureWithGuide(guide: Guide): Promise<Blob | null> {
   // Permission is asked before anything is drawn: on a refusal the client sees
   // their own screen, not a black rectangle they have to dismiss.
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -54,8 +59,8 @@ export async function captureNameplate(hint: string): Promise<Blob | null> {
   root.className = 'cam';
   root.innerHTML = `
     <video class="cam-view" playsinline muted autoplay></video>
-    <div class="cam-guide"></div>
-    <p class="cam-hint">${hint}</p>
+    <div class="cam-guide ${guide.shape}"></div>
+    <p class="cam-hint">${guide.hint}</p>
     <div class="cam-bar">
       <button type="button" class="cam-side" data-cam="cancel">Annuler</button>
       <button type="button" class="cam-shutter" data-cam="shoot" aria-label="Prendre la photo"></button>
