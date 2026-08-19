@@ -130,6 +130,11 @@ async function boot(): Promise<void> {
     } else if (p.localVerdict) {
       state.photoUi[slot].localVerdict = p.localVerdict;
       state.photoUi[slot].verdict = localVerdictMessage(p.localVerdict);
+    } else {
+      // Neither reading survived — a photo sent before the verdict was
+      // recorded, or an analysis that never came back. The photo is on file
+      // either way, and saying so beats a screen that looks untouched.
+      state.photoUi[slot].verdict = { tone: 'ok', text: '✓ Photo reçue.' };
     }
   }
 
