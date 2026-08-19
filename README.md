@@ -220,6 +220,26 @@ Le modèle Docs doit contenir les balises `{{REF}}`, `{{TEL}}`, `{{VILLE}}`,
 `{{VISITE}}`, `{{NOTES}}`, `{{BANDEAU}}`, `{{VIDEO}}`, `{{ACCES}}`,
 `{{DISPO}}` et `{{PHOTOS}}`.
 
+## Rejouer un dossier en test
+
+```bash
+./scripts/reset-case.sh <token>          # distant
+./scripts/reset-case.sh <token> --local  # base locale
+```
+
+Remettre `status` à `open` ne suffit pas : le front se repositionne d'après
+l'état réel — réponses enregistrées, photos envoyées, bandeau capturé — et non
+d'après le statut. Le script efface les trois, sinon le client repart au milieu
+du parcours.
+
+Créer un dossier neuf reste souvent plus simple :
+
+```bash
+curl -X POST https://diag-api.soscumulus.fr/api/lead \
+  -H 'content-type: application/json' -H "x-lead-secret: $LEAD_SECRET" \
+  -d '{"phone":"0788089128","city":"Lyon","reportedIssue":"Test"}'
+```
+
 ## Stockage et données personnelles
 
 Les photos montrent le domicile du client. Deux étages, deux rôles :
