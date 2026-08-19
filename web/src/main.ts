@@ -310,9 +310,17 @@ function nameplateReadback(analysis: PhotoAnalysis | null): string {
   if (n.model) rows.push(['Référence', n.model]);
   if (n.capacityLiters) rows.push(['Capacité', `${n.capacityLiters} litres`]);
   if (n.powerWatts) rows.push(['Puissance', `${n.powerWatts} W`]);
-  if (n.barcode) rows.push(['Code-barres', n.barcode]);
-  if (n.serial) rows.push(['N° de série', n.serial]);
+  if (n.voltage) rows.push(['Alimentation', n.voltage]);
+  // Decimal comma: the client is comparing this against a French label.
+  if (n.pressureBar)
+    rows.push(['Pression max', `${String(n.pressureBar).replace('.', ',')} bar`]);
+  if (n.heatUpTime) rows.push(['Temps de chauffe', n.heatUpTime]);
+  if (n.tankLining) rows.push(['Cuve', n.tankLining]);
+  if (n.protectionIndex) rows.push(['Indice de protection', n.protectionIndex]);
+  if (n.manufactureCode) rows.push(['Code de fabrication', n.manufactureCode]);
   if (n.manufactureDate) rows.push(['Fabrication', n.manufactureDate]);
+  if (n.serial) rows.push(['N° de série', n.serial]);
+  if (n.barcode) rows.push(['Code-barres', n.barcode]);
   if (n.type !== 'unknown') rows.push(['Type', UNIT_TYPES[n.type]]);
 
   if (rows.length === 0) return '';

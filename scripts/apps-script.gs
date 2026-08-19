@@ -238,12 +238,13 @@ function buildReport(d) {
     "{{CONFIANCE}}": diag.confidence || "",
     "{{VISITE}}": diag.needsOnSite ? "Oui" : "Non",
     "{{NOTES}}": diag.technicianNotes || "",
+    "{{PLAQUE}}": nameplateSummary_(nameplate),
     "{{BANDEAU}}": panelSummary_(d.panel),
     // A Doc cannot embed a video, so this stays a link. It expires with the
     // file, at seven days — the Doc remains readable without it afterwards.
     "{{VIDEO}}": d.panelVideoUrl || "Aucune vidéo",
-    "{{ACCES}}": (d.answers && d.answers.acces) || "",
-    "{{DISPO}}": (d.answers && d.answers.dispo) || "",
+    "{{ACCES}}": (d.answers && d.answers.access) || "",
+    "{{DISPO}}": (d.answers && d.answers.availability) || "",
   };
   for (var key in fields) body.replaceText(escapeRegex_(key), fields[key]);
 
@@ -392,15 +393,45 @@ function nameplateOf_(d) {
   return (p1 && p1.analysis && p1.analysis.nameplate) || {};
 }
 
+/**
+ * Everything read off the nameplate, one marking per line.
+ *
+ * {{APPAREIL}} carries the identity in one line for the header; this block is
+ * what the technician actually orders parts against — the barcode identifies
+ * the exact unit, the lining says whether an anode is due, and the voltage says
+ * whether the existing line can even take the replacement.
+ */
+function nameplateSummary_(n) {
+  if (!n || !n.readable) return "Étiquette non lue";
+  var lines = [];
+  var add = function (label, value) {
+    if (value || value === 0) lines.push(label + " : " + value);
+  };
+  add("Marque", n.brand);
+  add("Référence", n.model);
+  add("Capacité", n.capacityLiters ? n.capacityLiters + " L" : "");
+  add("Puissance", n.powerWatts ? n.powerWatts + " W" : "");
+  add("Alimentation", n.voltage);
+  add("Pression max", n.pressureBar ? String(n.pressureBar).replace(".", ",") + " bar" : "");
+  add("Temps de chauffe", n.heatUpTime);
+  add("Cuve", n.tankLining);
+  add("Indice de protection", n.protectionIndex);
+  add("Code de fabrication", n.manufactureCode);
+  add("Fabrication", n.manufactureDate);
+  add("N° de série", n.serial);
+  add("Code-barres", n.barcode);
+  return lines.length ? lines.join("\n") : "Aucune mention lisible";
+}
+
 /** Readable rendering of the control-panel analysis for the printed file. */
 function panelSummary_(b) {
   if (!b) return "Non renseigné";
-  var lignes = [];
-  if (b.code) lignes.push("Code affiché : " + b.code);
-  if (b.blinkPattern) lignes.push("Séquence : " + b.blinkPattern);
-  if (b.indicators && b.indicators.length) lignes.push("Voyants : " + b.indicators.join(", "));
-  if (b.interpretation) lignes.push("Lecture : " + b.interpretation);
-  return lignes.length ? lignes.join("\n") : "Aucun signal exploitable";
+  var lines = [];
+  if (b.code) lines.push("Code affiché : " + b.code);
+  if (b.blinkPattern) lines.push("Séquence : " + b.blinkPattern);
+  if (b.indicators && b.indicators.length) lines.push("Voyants : " + b.indicators.join(", "));
+  if (b.interpretation) lines.push("Lecture : " + b.interpretation);
+  return lines.length ? lines.join("\n") : "Aucun signal exploitable";
 }
 
 // Escape HTML to prevent any injection in the email.

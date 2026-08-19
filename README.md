@@ -207,19 +207,24 @@ Propriétés du script à renseigner (Paramètres du projet → Propriétés) :
 |---|---|
 | `API_URL` | `https://diag-api.soscumulus.fr` |
 | `LEAD_SECRET` | identique au secret Worker — voir `api/.dev.vars` |
-| `FICHE_SECRET` | identique au secret Worker |
+| `REPORT_SECRET` | identique au secret Worker |
 | `TEMPLATE_ID` | id du Google Doc modèle |
-| `DOSSIER_ID` | id du dossier Drive d'archivage |
-| `ARCHIVE_ANS` | `2` |
+| `ARCHIVE_FOLDER_ID` | id du dossier Drive d'archivage |
+| `ARCHIVE_YEARS` | `2` |
 
 Puis relancer `setupStatusColumn` une fois (la colonne G accueille désormais le
-lien de diagnostic), et créer le déclencheur mensuel sur `purgerArchives`.
+lien de diagnostic), et créer le déclencheur mensuel sur `purgeArchives`.
 
 Le modèle Docs doit contenir les balises `{{REF}}`, `{{TEL}}`, `{{VILLE}}`,
 `{{PROBLEME}}`, `{{DATE}}`, `{{APPAREIL}}`, `{{SYNTHESE}}`, `{{CAUSE}}`,
 `{{ACTION}}`, `{{URGENCE}}`, `{{PIECES}}`, `{{DUREE}}`, `{{CONFIANCE}}`,
-`{{VISITE}}`, `{{NOTES}}`, `{{BANDEAU}}`, `{{VIDEO}}`, `{{ACCES}}`,
-`{{DISPO}}` et `{{PHOTOS}}`.
+`{{VISITE}}`, `{{NOTES}}`, `{{PLAQUE}}`, `{{BANDEAU}}`, `{{VIDEO}}`,
+`{{ACCES}}`, `{{DISPO}}` et `{{PHOTOS}}`.
+
+`{{APPAREIL}}` tient sur une ligne d'en-tête — marque, référence, capacité.
+`{{PLAQUE}}` déplie tout ce qui a été lu sur l'étiquette, une mention par
+ligne : c'est là que le technicien lit le code-barres, la protection de cuve
+et la tension avant de charger le camion.
 
 ## Rejouer un dossier en test
 

@@ -51,6 +51,12 @@ const NAMEPLATE: JsonSchema = {
     'model',
     'capacityLiters',
     'powerWatts',
+    'voltage',
+    'pressureBar',
+    'heatUpTime',
+    'tankLining',
+    'protectionIndex',
+    'manufactureCode',
     'serial',
     'barcode',
     'manufactureDate',
@@ -68,6 +74,33 @@ const NAMEPLATE: JsonSchema = {
     },
     capacityLiters: { type: nullable('integer') },
     powerWatts: { type: nullable('integer') },
+    voltage: {
+      type: nullable('string'),
+      description: 'As printed, e.g. "230V~", "400V 3~". Never normalised.',
+    },
+    pressureBar: {
+      type: nullable('number'),
+      description:
+        'Maximum service pressure in bar. Convert from MPa: 1 MPa = 10 bar.',
+    },
+    heatUpTime: {
+      type: nullable('string'),
+      description: 'Heating time as printed, e.g. "4 h 20 min".',
+    },
+    tankLining: {
+      type: nullable('string'),
+      description: 'Tank protection marking as printed, e.g. "FE+EMAIL", "INOX".',
+    },
+    protectionIndex: {
+      type: nullable('string'),
+      description:
+        'IP marking with the category when present, e.g. "IP25 D CAT.B".',
+    },
+    manufactureCode: {
+      type: nullable('string'),
+      description:
+        'Manufacturing batch code as printed, e.g. "FAB 439". Transcribed, never decoded.',
+    },
     serial: { type: nullable('string') },
     barcode: {
       type: nullable('string'),

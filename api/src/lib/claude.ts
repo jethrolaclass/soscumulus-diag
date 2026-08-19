@@ -119,6 +119,14 @@ const SLOT_PROMPTS: Record<PhotoSlot, string> = {
 
 Lis l'étiquette caractère par caractère. La capacité est en litres, la puissance en watts. Le type se déduit des mentions présentes : une résistance stéatite est souvent annoncée explicitement, un modèle blindé mentionne parfois « thermoplongeur », un thermodynamique porte une mention de pompe à chaleur ou un COP, un modèle gaz affiche un débit calorifique en kW.
 
+Une étiquette porte aussi une ligne de caractéristiques serrées, imprimée petit, qu'on survole en croyant l'avoir lue. Relève chacune telle qu'elle est imprimée : la tension d'alimentation dans "voltage" (« 230V~ », « 400V 3~ » — la mention triphasée change le raccordement, ne la perds pas) ; le temps de chauffe dans "heatUpTime" (« 4 h 20 min ») ; la protection de cuve dans "tankLining" (« FE+EMAIL », « INOX ») ; l'indice de protection dans "protectionIndex", suivi de la catégorie quand elle y figure (« IP25 D CAT.B ») ; le code de fabrication dans "manufactureCode" (« FAB 439 »).
+
+Le code de fabrication se recopie, il ne se décode pas : chaque constructeur a son encodage, et une date reconstituée de travers vaut moins qu'une case vide. Il va dans "manufactureCode", jamais dans "manufactureDate", qui n'accueille qu'une date lisible en clair sur l'étiquette.
+
+"pressureBar" attend des bar, alors que l'étiquette imprime le plus souvent des MPa : 1 MPa vaut 10 bar, donc « 0,6 MPa » donne 6. Quand les deux unités sont imprimées côte à côte, elles se confirment l'une l'autre.
+
+La référence suit souvent la mention « MOD: » ; c'est elle qui va dans "model", sans le préfixe.
+
 Le code-barres mérite une attention particulière : ses chiffres sont presque toujours imprimés **à la verticale**, le long du bord gauche ou droit de l'étiquette, tournés de 90 degrés par rapport au reste du texte. C'est pour cette raison qu'on les oublie. Ils forment une suite de quatorze à seize chiffres qui identifie l'appareil exact — c'est ce qui permet de commander la bonne pièce et de vérifier une garantie, donc l'information la plus utile de toute l'étiquette après la référence.
 
 Prends le temps de faire pivoter mentalement cette zone et de lire les chiffres un par un. Reporte-les dans "barcode" sans espace ni séparateur. Si un seul chiffre reste douteux, le champ vaut null : un numéro à un chiffre près ne sert à rien et fait commander la mauvaise pièce.

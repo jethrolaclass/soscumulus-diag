@@ -104,6 +104,30 @@ export interface Nameplate {
   model: string | null;
   capacityLiters: number | null;
   powerWatts: number | null;
+  /**
+   * Supply voltage as printed ("230V~", "400V 3~"). A string, not a number:
+   * a three-phase unit prints both values, and which one it is decides whether
+   * the technician can even connect the replacement on the existing line.
+   */
+  voltage: string | null;
+  /** Maximum service pressure in bar. Labels print MPa; 1 MPa = 10 bar. */
+  pressureBar: number | null;
+  /** Time to heat a full tank, as printed ("4 h 20 min"). */
+  heatUpTime: string | null;
+  /**
+   * Tank protection marking as printed ("FE+EMAIL", "INOX"). Enamelled steel
+   * needs its anode checked; stainless does not. That decides what goes in the
+   * van.
+   */
+  tankLining: string | null;
+  /** IP marking, with the category when the label carries one ("IP25 D CAT.B"). */
+  protectionIndex: string | null;
+  /**
+   * Manufacturing batch code as printed ("FAB 439"). Distinct from
+   * `manufactureDate`: it is the only dating on many labels, and its encoding
+   * varies by maker — transcribe it, never decode it.
+   */
+  manufactureCode: string | null;
   serial: string | null;
   /**
    * Digits printed under or beside the barcode, usually vertically along the
