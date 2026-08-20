@@ -81,6 +81,16 @@ var LABELS = {
   },
 };
 
+// Caption under each photo in the report: the very title the client read while
+// taking it. Duplicated from web/src/questions.ts PHOTO_SCREENS — the wording
+// is short, stable, and shipping it through the API would mean a Worker deploy
+// for a caption change.
+var PHOTO_TITLES = {
+  1: "L'étiquette du chauffe-eau",
+  2: "Le chauffe-eau en entier",
+  3: "Là où ça coule",
+};
+
 // Secrets and ids live in Script Properties, never in this file.
 var P = PropertiesService.getScriptProperties();
 
@@ -299,17 +309,56 @@ function buildReport(d) {
   if (anchor) {
     var para = anchor.getElement().getParent().asParagraph();
     para.clear();
-    (d.photos || []).forEach(function (p) {
-      if (!p.url) return;
+    // Inserted bottom-up at a fixed index, so slot 1 ends up first: each
+    // insertion pushes the previous one down.
+    var slots = (d.photos || []).slice().sort(function (a, b) { return b.slot - a.slot; });
+    var index = body.getChildIndex(para) + 1;
+    slots.forEach(function (p) {
+      var title = PHOTO_TITLES[p.slot] || ("Photo " + p.slot);
+      if (!p.url) {
+        var absent = body.insertParagraph(index, title + " — " +
+          (p.skipped ? "passée par le client" : "non transmise"));
+        absent.setForegroundColor(GRAY).setFontSize(9);
+        return;
+      }
       try {
         var blob = UrlFetchApp.fetch(p.url, { muteHttpExceptions: true }).getBlob();
-        var img = body.insertImage(body.getChildIndex(para) + 1, blob);
-        img.setWidth(280);
-        img.setHeight((img.getHeight() / img.getWidth()) * 280);
+        var img = body.insertImage(index, blob);
+        img.setWidth(320);
+        img.setHeight((img.getHeight() / img.getWidth()) * 320);
+        // The caption goes above the image: inserted at the same index, it is
+        // pushed down and lands on top of it.
+        var caption = body.insertParagraph(index, title);
+        caption.setForegroundColor(NAVY).setFontSize(10).setBold(true);
       } catch (err) {
         console.error("photo " + p.slot + " non insérée : " + err);
       }
     });
+  }
+
+  // QR and clickable link to the durable archive. The R2 links expire in seven
+  // days; this folder is what still answers in two years.
+  var qrAnchor = body.findText("{{QR}}");
+  if (qrAnchor) {
+    var qrPara = qrAnchor.getElement().getParent().asParagraph();
+    qrPara.clear();
+    try {
+      var bytes = qrPng(qrMatrix(folder.getUrl()), 6, 3);
+      var qrImg = qrPara.appendInlineImage(
+        Utilities.newBlob(bytes, "image/png", "qr.png"));
+      qrImg.setWidth(96);
+      qrImg.setHeight(96);
+    } catch (err) {
+      console.error("QR non genere : " + err);
+      qrPara.appendText("");
+    }
+  }
+
+  var mediaAnchor = body.findText("{{MEDIA}}");
+  if (mediaAnchor) {
+    var mediaPara = mediaAnchor.getElement().getParent().asParagraph();
+    mediaPara.clear();
+    mediaPara.appendText("Ouvrir le dossier").setLinkUrl(folder.getUrl());
   }
 
   doc.saveAndClose();
@@ -794,4 +843,386 @@ function setupStatusColumn() {
       .build();
   });
   sh.setConditionalFormatRules(rules);
+}
+
+/* ------------------------------------------------------------------ */
+/* QR code                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Minimal QR encoder — byte mode, error correction level M, versions 1 to 10.
+ *
+ * Written rather than fetched: the Google Charts endpoint that used to serve
+ * these has been switched off, and handing a link to a client's home photos to
+ * a third-party image service would have it logged there. Ten versions cover
+ * 213 bytes, far more than a Drive folder URL ever needs.
+ *
+ * Returns a square array of booleans, true meaning a dark module.
+ */
+function qrMatrix(text) {
+  var CAPACITY = [0, 14, 26, 42, 62, 84, 106, 122, 152, 180, 213];
+  // [total codewords, ec per block, group1 blocks, group1 data, group2 blocks, group2 data]
+  var BLOCKS = [
+    null,
+    [26, 10, 1, 16, 0, 0],
+    [44, 16, 1, 28, 0, 0],
+    [70, 26, 1, 44, 0, 0],
+    [100, 18, 2, 32, 0, 0],
+    [134, 24, 2, 43, 0, 0],
+    [172, 16, 4, 27, 0, 0],
+    [196, 18, 4, 31, 0, 0],
+    [242, 22, 2, 38, 2, 39],
+    [292, 22, 3, 36, 2, 37],
+    [346, 26, 4, 43, 1, 44],
+  ];
+  var ALIGN = [
+    [], [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34],
+    [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50],
+  ];
+  var FORMAT_M = [
+    0x5412, 0x5125, 0x5e7c, 0x5b4b, 0x45f9, 0x40ce, 0x4f97, 0x4aa0,
+  ];
+  var VERSION_INFO = {
+    7: 0x07c94, 8: 0x085bc, 9: 0x09a99, 10: 0x0a4d3,
+  };
+
+  /* ---- bytes (UTF-8) ---- */
+  var data = [];
+  for (var i = 0; i < text.length; i++) {
+    var c = text.charCodeAt(i);
+    if (c < 0x80) data.push(c);
+    else if (c < 0x800) data.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+    else data.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+  }
+
+  var version = 0;
+  for (var v = 1; v <= 10; v++) {
+    if (data.length <= CAPACITY[v]) { version = v; break; }
+  }
+  if (!version) throw new Error('QR: texte trop long');
+
+  var spec = BLOCKS[version];
+  var totalCw = spec[0], ecPerBlock = spec[1];
+  var g1 = spec[2], d1 = spec[3], g2 = spec[4], d2 = spec[5];
+  var dataCw = g1 * d1 + g2 * d2;
+
+  /* ---- bit stream ---- */
+  var bits = [];
+  function put(value, length) {
+    for (var b = length - 1; b >= 0; b--) bits.push((value >> b) & 1);
+  }
+  put(4, 4);                                   // byte mode
+  put(data.length, version < 10 ? 8 : 16);     // character count
+  for (var j = 0; j < data.length; j++) put(data[j], 8);
+
+  var capacityBits = dataCw * 8;
+  for (var t = 0; t < 4 && bits.length < capacityBits; t++) bits.push(0);
+  while (bits.length % 8) bits.push(0);
+
+  var cw = [];
+  for (var k = 0; k < bits.length; k += 8) {
+    var byte = 0;
+    for (var m = 0; m < 8; m++) byte = (byte << 1) | bits[k + m];
+    cw.push(byte);
+  }
+  var pad = [0xec, 0x11], p = 0;
+  while (cw.length < dataCw) cw.push(pad[p++ % 2]);
+
+  /* ---- Reed-Solomon over GF(256) ---- */
+  var EXP = new Array(512), LOG = new Array(256);
+  for (var x = 0, e = 1; x < 255; x++) {
+    EXP[x] = e; LOG[e] = x;
+    e <<= 1;
+    if (e & 0x100) e ^= 0x11d;
+  }
+  for (var y = 255; y < 512; y++) EXP[y] = EXP[y - 255];
+
+  function generator(degree) {
+    var poly = [1];
+    for (var d = 0; d < degree; d++) {
+      var next = poly.concat([0]);
+      for (var q = 0; q < poly.length; q++) {
+        next[q + 1] ^= poly[q] ? EXP[(LOG[poly[q]] + d) % 255] : 0;
+      }
+      poly = next;
+    }
+    return poly;
+  }
+
+  function ecFor(block, count) {
+    var gen = generator(count);
+    var rem = block.concat(new Array(count).fill(0));
+    for (var s = 0; s < block.length; s++) {
+      var lead = rem[s];
+      if (!lead) continue;
+      for (var g = 0; g < gen.length; g++) {
+        rem[s + g] ^= gen[g] ? EXP[(LOG[gen[g]] + LOG[lead]) % 255] : 0;
+      }
+    }
+    return rem.slice(block.length);
+  }
+
+  var blocks = [], ecs = [], at = 0;
+  for (var b1 = 0; b1 < g1; b1++) { blocks.push(cw.slice(at, at + d1)); at += d1; }
+  for (var b2 = 0; b2 < g2; b2++) { blocks.push(cw.slice(at, at + d2)); at += d2; }
+  for (var bb = 0; bb < blocks.length; bb++) ecs.push(ecFor(blocks[bb], ecPerBlock));
+
+  // Interleaved, as the specification requires: a scratch on the paper then
+  // damages a few modules of every block rather than destroying one entirely.
+  var final = [];
+  var maxData = Math.max(d1, d2 || 0);
+  for (var col = 0; col < maxData; col++) {
+    for (var bl = 0; bl < blocks.length; bl++) {
+      if (col < blocks[bl].length) final.push(blocks[bl][col]);
+    }
+  }
+  for (var ecol = 0; ecol < ecPerBlock; ecol++) {
+    for (var eb = 0; eb < ecs.length; eb++) final.push(ecs[eb][ecol]);
+  }
+  if (final.length !== totalCw) throw new Error('QR: assemblage incoherent');
+
+  /* ---- matrix ---- */
+  var size = 17 + version * 4;
+  var mod = [], reserved = [];
+  for (var r = 0; r < size; r++) {
+    mod.push(new Array(size).fill(false));
+    reserved.push(new Array(size).fill(false));
+  }
+  function set(rr, cc, dark) { mod[rr][cc] = dark; reserved[rr][cc] = true; }
+
+  function finder(rr, cc) {
+    for (var dr = -1; dr <= 7; dr++) {
+      for (var dc = -1; dc <= 7; dc++) {
+        var r2 = rr + dr, c2 = cc + dc;
+        if (r2 < 0 || c2 < 0 || r2 >= size || c2 >= size) continue;
+        var inRing = (dr >= 0 && dr <= 6 && (dc === 0 || dc === 6)) ||
+                     (dc >= 0 && dc <= 6 && (dr === 0 || dr === 6));
+        var inCore = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
+        set(r2, c2, inRing || inCore);
+      }
+    }
+  }
+  finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+
+  for (var tm = 8; tm < size - 8; tm++) {
+    set(6, tm, tm % 2 === 0);
+    set(tm, 6, tm % 2 === 0);
+  }
+
+  var centres = ALIGN[version];
+  for (var ai = 0; ai < centres.length; ai++) {
+    for (var aj = 0; aj < centres.length; aj++) {
+      var ar = centres[ai], ac = centres[aj];
+      if ((ar === 6 && ac === 6) || (ar === 6 && ac === size - 7) ||
+          (ar === size - 7 && ac === 6)) continue;
+      for (var dr2 = -2; dr2 <= 2; dr2++) {
+        for (var dc2 = -2; dc2 <= 2; dc2++) {
+          var ring = Math.max(Math.abs(dr2), Math.abs(dc2));
+          set(ar + dr2, ac + dc2, ring !== 1);
+        }
+      }
+    }
+  }
+
+  set(size - 8, 8, true);  // dark module
+
+  // Reserve the format areas before laying data down.
+  for (var f = 0; f < 9; f++) {
+    if (!reserved[8][f]) reserved[8][f] = true;
+    if (!reserved[f][8]) reserved[f][8] = true;
+  }
+  for (var f2 = 0; f2 < 8; f2++) {
+    reserved[8][size - 1 - f2] = true;
+    reserved[size - 1 - f2][8] = true;
+  }
+  if (version >= 7) {
+    for (var vi = 0; vi < 18; vi++) {
+      reserved[Math.floor(vi / 3)][size - 11 + (vi % 3)] = true;
+      reserved[size - 11 + (vi % 3)][Math.floor(vi / 3)] = true;
+    }
+  }
+
+  /* ---- data placement, upward-then-downward zigzag ---- */
+  var bitIndex = 0, total = final.length * 8;
+  function nextBit() {
+    if (bitIndex >= total) return 0;
+    var byteAt = final[bitIndex >> 3];
+    var bit = (byteAt >> (7 - (bitIndex & 7))) & 1;
+    bitIndex++;
+    return bit;
+  }
+  var up = true;
+  for (var colPair = size - 1; colPair > 0; colPair -= 2) {
+    if (colPair === 6) colPair--;  // the vertical timing column is skipped
+    for (var step = 0; step < size; step++) {
+      var row = up ? size - 1 - step : step;
+      for (var side = 0; side < 2; side++) {
+        var c3 = colPair - side;
+        if (reserved[row][c3]) continue;
+        mod[row][c3] = nextBit() === 1;
+      }
+    }
+    up = !up;
+  }
+
+  /* ---- masking ---- */
+  function maskAt(pattern, r3, c4) {
+    switch (pattern) {
+      case 0: return (r3 + c4) % 2 === 0;
+      case 1: return r3 % 2 === 0;
+      case 2: return c4 % 3 === 0;
+      case 3: return (r3 + c4) % 3 === 0;
+      case 4: return (Math.floor(r3 / 2) + Math.floor(c4 / 3)) % 2 === 0;
+      case 5: return ((r3 * c4) % 2) + ((r3 * c4) % 3) === 0;
+      case 6: return (((r3 * c4) % 2) + ((r3 * c4) % 3)) % 2 === 0;
+      default: return (((r3 + c4) % 2) + ((r3 * c4) % 3)) % 2 === 0;
+    }
+  }
+
+  function penalty(grid) {
+    var score = 0, n = size, i2, j2, run, dark = 0;
+    for (i2 = 0; i2 < n; i2++) {
+      run = 1;
+      for (j2 = 1; j2 < n; j2++) {
+        if (grid[i2][j2] === grid[i2][j2 - 1]) run++;
+        else { if (run >= 5) score += run - 2; run = 1; }
+      }
+      if (run >= 5) score += run - 2;
+      run = 1;
+      for (j2 = 1; j2 < n; j2++) {
+        if (grid[j2][i2] === grid[j2 - 1][i2]) run++;
+        else { if (run >= 5) score += run - 2; run = 1; }
+      }
+      if (run >= 5) score += run - 2;
+    }
+    for (i2 = 0; i2 < n - 1; i2++) {
+      for (j2 = 0; j2 < n - 1; j2++) {
+        var a = grid[i2][j2];
+        if (a === grid[i2][j2 + 1] && a === grid[i2 + 1][j2] && a === grid[i2 + 1][j2 + 1]) score += 3;
+      }
+    }
+    var pat1 = [true, false, true, true, true, false, true, false, false, false, false];
+    var pat2 = [false, false, false, false, true, false, true, true, true, false, true];
+    function matches(list, start, pattern) {
+      for (var q2 = 0; q2 < 11; q2++) if (list[start + q2] !== pattern[q2]) return false;
+      return true;
+    }
+    for (i2 = 0; i2 < n; i2++) {
+      var rowArr = grid[i2], colArr = [];
+      for (j2 = 0; j2 < n; j2++) colArr.push(grid[j2][i2]);
+      for (j2 = 0; j2 + 11 <= n; j2++) {
+        if (matches(rowArr, j2, pat1) || matches(rowArr, j2, pat2)) score += 40;
+        if (matches(colArr, j2, pat1) || matches(colArr, j2, pat2)) score += 40;
+      }
+    }
+    for (i2 = 0; i2 < n; i2++) for (j2 = 0; j2 < n; j2++) if (grid[i2][j2]) dark++;
+    score += Math.floor(Math.abs((dark * 100) / (n * n) - 50) / 5) * 10;
+    return score;
+  }
+
+  var best = null, bestScore = Infinity, bestMask = 0;
+  for (var pat = 0; pat < 8; pat++) {
+    var trial = [];
+    for (var rr2 = 0; rr2 < size; rr2++) {
+      trial.push(mod[rr2].slice());
+      for (var cc2 = 0; cc2 < size; cc2++) {
+        if (!reserved[rr2][cc2] && maskAt(pat, rr2, cc2)) trial[rr2][cc2] = !trial[rr2][cc2];
+      }
+    }
+    // Format bits belong to the trial: they change its penalty.
+    applyFormat(trial, pat);
+    var sc = penalty(trial);
+    if (sc < bestScore) { bestScore = sc; best = trial; bestMask = pat; }
+  }
+
+  function applyFormat(grid, pattern) {
+    var fmt = FORMAT_M[pattern];
+    for (var q = 0; q < 15; q++) {
+      var bit = ((fmt >> q) & 1) === 1;
+      if (q < 6) grid[8][q] = bit;
+      else if (q === 6) grid[8][7] = bit;
+      else if (q === 7) grid[8][8] = bit;
+      else if (q === 8) grid[7][8] = bit;
+      else grid[14 - q][8] = bit;
+
+      if (q < 8) grid[8][size - 1 - q] = bit;
+      else grid[size - 15 + q][8] = bit;
+    }
+    grid[size - 8][8] = true;
+    if (version >= 7) {
+      var vinfo = VERSION_INFO[version];
+      for (var w = 0; w < 18; w++) {
+        var vbit = ((vinfo >> w) & 1) === 1;
+        grid[Math.floor(w / 3)][size - 11 + (w % 3)] = vbit;
+        grid[size - 11 + (w % 3)][Math.floor(w / 3)] = vbit;
+      }
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Minimal PNG writer — 1-bit greyscale, no compression.
+ *
+ * Apps Script has no canvas, and a Doc will not embed a BMP. A PNG is a few
+ * chunks and two checksums, and deflate accepts stored blocks, so the whole
+ * thing fits in sixty lines with no dependency.
+ */
+function qrPng(matrix, scale, quiet) {
+  scale = scale || 8;
+  quiet = quiet === undefined ? 4 : quiet;
+  var n = matrix.length, side = (n + quiet * 2) * scale;
+
+  // One byte per pixel, 0 = black, 255 = white, prefixed by the filter byte.
+  var stride = side + 1, raw = [];
+  for (var y = 0; y < side; y++) {
+    raw.push(0);
+    var my = Math.floor(y / scale) - quiet;
+    for (var x = 0; x < side; x++) {
+      var mx = Math.floor(x / scale) - quiet;
+      var dark = my >= 0 && my < n && mx >= 0 && mx < n && matrix[my][mx];
+      raw.push(dark ? 0 : 255);
+    }
+  }
+
+  function crc32(bytes) {
+    var c, table = crc32.table;
+    if (!table) {
+      table = crc32.table = [];
+      for (var i = 0; i < 256; i++) {
+        c = i;
+        for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        table[i] = c >>> 0;
+      }
+    }
+    c = 0xffffffff;
+    for (var b = 0; b < bytes.length; b++) c = table[(c ^ bytes[b]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  function be32(v) { return [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255]; }
+
+  function chunk(type, body) {
+    var head = [];
+    for (var i = 0; i < 4; i++) head.push(type.charCodeAt(i));
+    var full = head.concat(body);
+    return be32(body.length).concat(full, be32(crc32(full)));
+  }
+
+  // zlib: header, then deflate stored blocks of at most 65535 bytes, then adler.
+  var z = [0x78, 0x01];
+  for (var off = 0; off < raw.length; off += 65535) {
+    var block = raw.slice(off, off + 65535), last = off + 65535 >= raw.length;
+    z.push(last ? 1 : 0, block.length & 255, (block.length >> 8) & 255,
+           ~block.length & 255, (~block.length >> 8) & 255);
+    z = z.concat(block);
+  }
+  var a = 1, b2 = 0;
+  for (var r = 0; r < raw.length; r++) { a = (a + raw[r]) % 65521; b2 = (b2 + a) % 65521; }
+  z = z.concat(be32(((b2 << 16) | a) >>> 0));
+
+  var ihdr = be32(side).concat(be32(side), [8, 0, 0, 0, 0]);  // 8-bit greyscale
+  return [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+    .concat(chunk('IHDR', ihdr), chunk('IDAT', z), chunk('IEND', []));
 }

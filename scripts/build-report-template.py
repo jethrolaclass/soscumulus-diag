@@ -150,6 +150,14 @@ add(tbl(FULL, [
     [field("NOTES TECHNICIEN — VISITE SUR SITE : {{VISITE}} · DURÉE ESTIMÉE : {{DUREE}}",
            "{{NOTES}}")]]))
 
+section("Photos et vidéos du dossier")
+add(tbl(share(30, 70), [[
+    C(para([run("{{QR}}", 17)]), bd=borders(TOP)),
+    C(lbl("SCANNEZ, OU OUVREZ LE LIEN") +
+      para([run("{{MEDIA}}", 15, NAVY)], before=20, after=40) +
+      para([run("Photos du client, images du bandeau et vidéo source. "
+                "Conservé deux ans.", 13, GRAY)], after=40), bd=borders(TOP))]]))
+
 section("Intervention prévue")
 add(tbl(HALF, [
     [field("NATURE", "☐ Réparation   ☐ Remplacement   ☐ Diagnostic sur place", top=True),
@@ -174,7 +182,7 @@ add(tbl(HALF, [
               "• Un doute ? On appelle le référent avant d'improviser."]), shd=NAVY)],
     [C(para([run("Référent technique : ............................     Bureau : ............................",
                  15, ICE)], before=40), 2, shd=NAVY)]]))
-add(para([run("SOS Cumulus — Ordre d'intervention & compte rendu · template V1        Page 1/2",
+add(para([run("SOS Cumulus — Ordre d'intervention & compte rendu · template V1        Page 1/3",
               13, GRAY)], before=120))
 add('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
 
@@ -230,7 +238,15 @@ add(para([run("Jamais d'espèces ni de virement au technicien.", 13, GRAY)], bef
 add(para([run("AVANT DE QUITTER LES LIEUX", 13, GRAY)], before=140))
 add(para([run("☐ Sticker QR posé    ☐ Flyers (collectif)    ☐ Notice remise    ☐ Photos APRÈS envoyées    ☐ PV signé    ☐ Solde encaissé", 16)], before=30))
 add(para([run("Avis Google demandé par le bureau après validation du CR · technicien réglé sous 48 h après validation.", 13, GRAY)], before=30))
-add(para([run("SOS Cumulus — Ordre d'intervention & compte rendu · template V1        Page 2/2",
+add(para([run("SOS Cumulus — Ordre d'intervention & compte rendu · template V1        Page 2/3",
+              13, GRAY)], before=120))
+add('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
+
+header("Photos transmises par le client", [
+    para([run("Dossier {{REF}}", 26, ORANGE2, True, head=True)], align="right"),
+    para([run("Prises pendant le diagnostic à distance", 15, ICE)], before=60, align="right")])
+add(para([run("{{PHOTOS}}", 17)], before=120))
+add(para([run("SOS Cumulus — Ordre d'intervention & compte rendu · template V1        Page 3/3",
               13, GRAY)], before=120))
 
 SECT = (f'<w:sectPr><w:pgSz w:w="{PAGE_W}" w:h="16838"/>'

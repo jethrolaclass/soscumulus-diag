@@ -252,10 +252,15 @@ là où `{{MARQUE}}`, `{{MODELE}}` et `{{CAPACITE}}` ont chacune leur case.
 ligne : c'est là que le technicien lit le code-barres, la protection de cuve
 et la tension avant de charger le camion.
 
-`{{PHOTOS}}`, seule dans son paragraphe, est remplacée par les photos du
-client incorporées au document. Le modèle en service ne l'utilise pas — les
-photos partent sur le WhatsApp du dossier — mais elles restent archivées en
-fichiers séparés dans le dossier Drive.
+`{{PHOTOS}}`, `{{QR}}` et `{{MEDIA}}` sont remplacées par des éléments, pas par
+du texte, et doivent chacune être seule dans son paragraphe : les photos du
+client incorporées avec leur légende, un QR code vers le dossier Drive, et le
+lien cliquable vers ce même dossier.
+
+Le QR est encodé par le script lui-même (`qrMatrix` + `qrPng`, en fin de
+fichier) : l'API Google Charts qui rendait ce service est éteinte, et confier
+un lien vers les photos d'un domicile à un service tiers le ferait journaliser
+chez lui. Encodeur vérifié en redécodant sa sortie.
 
 ## Rejouer un dossier en test
 
