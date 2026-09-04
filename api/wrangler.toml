@@ -24,10 +24,11 @@ REPORT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwbiwEGuzsHFBcO95S
 # « SOS Cumulus » en fait exactement 11. Rien à ajouter sans retirer ailleurs.
 SMS_SENDER        = "SOS Cumulus"
 EMERGENCY_PHONE   = "+33621560983"
-# Phase de test : seuls ces numéros reçoivent réellement un SMS. Les autres
-# dossiers sont créés normalement et leur lien reste valide, mais rien ne part.
-# ‼️ VIDER CETTE VARIABLE POUR LA MISE EN SERVICE.
-SMS_ALLOWLIST     = "0788089128,0621560983,0699872414"
+# En service : vide, donc tout client recevant un lien reçoit son SMS.
+# La remplir de numéros séparés par des virgules referme l'envoi sur eux seuls —
+# les autres dossiers restent créés et leur lien valide, mais rien ne part, et
+# l'e-mail de lead le signale à l'équipe.
+SMS_ALLOWLIST     = ""
 LOG_USAGE         = "true"
 
 [[d1_databases]]
