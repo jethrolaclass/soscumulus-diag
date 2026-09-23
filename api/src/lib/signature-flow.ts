@@ -20,9 +20,11 @@ import {
   getCase,
   getQuote,
   getQuoteByRequest,
+  claimQuote,
   deleteQuote,
   logEvent,
   saveFailedQuote,
+  STALE_CLAIM_MS,
   markQuoteSigned,
   saveQuote,
   setQuoteStatus,
@@ -55,15 +57,29 @@ export async function sendQuoteForSignature(
   const found = await getCase(env, token);
   if (!found) return { ok: false, reason: 'not_found' };
 
+  if (!found.diagnosis) return { ok: false, reason: 'no_diagnosis' };
+
   const existing = await getQuote(env, token);
-  if (existing?.status === 'failed' && opts.retryFailed) {
+  const stale =
+    existing?.status === 'pending' &&
+    Date.now() - Date.parse(existing.createdAt) > STALE_CLAIM_MS;
+  if ((existing?.status === 'failed' && opts.retryFailed) || stale) {
     await deleteQuote(env, token);
   } else if (existing) {
     return { ok: true, already: true, status: existing.status };
   }
 
+  if (!(await claimQuote(env, token))) {
+    return { ok: true, already: true, status: 'pending' };
+  }
+
   try {
-    return await produceAndSend(env, token, found, channel);
+    const outcome = await produceAndSend(env, token, found, channel);
+    // Missing contact or no price: recorded, so the confirmation page's polls
+    // and the cron stop asking every few seconds. The voice route retries on
+    // request, once the client has typed the missing email.
+    if (!outcome.ok) await saveFailedQuote(env, token, outcome.reason);
+    return outcome;
   } catch (err) {
     await saveFailedQuote(env, token, String(err));
     throw err;
@@ -77,7 +93,6 @@ async function produceAndSend(
   channel: SmsChannel,
 ): Promise<QuoteOutcome> {
   if (!found.diagnosis) return { ok: false, reason: 'no_diagnosis' };
-
   const a = found.answers;
   const email = a.email?.trim();
   if (!email || !a.firstName?.trim() || !a.lastName?.trim()) {

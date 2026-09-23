@@ -124,7 +124,7 @@ async function route(
 
     // GET /api/case/:token
     if (seg.length === 3 && method === 'GET') {
-      return handleGetCase(env, token);
+      return handleGetCase(env, ctx, token);
     }
     // PATCH /api/case/:token/answers
     if (seg[3] === 'answers' && seg.length === 4 && method === 'PATCH') {

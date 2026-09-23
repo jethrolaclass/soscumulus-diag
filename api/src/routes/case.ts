@@ -11,17 +11,37 @@ import { synthesize } from '../lib/claude';
 import {
   findCasesAwaitingDiagnosis,
   getCase,
+  getQuote,
   logEvent,
   saveAnswers,
   saveDiagnosis,
   setStatus,
 } from '../lib/db';
 import { pushReport, sendSafetyAlert } from '../lib/report';
+import { sendQuoteForSignature } from '../lib/signature-flow';
 import { badRequest, json, notFound } from '../lib/http';
 
-export async function handleGetCase(env: Env, token: string): Promise<Response> {
+/**
+ * Also the quote's fast path. After "Recevoir mon devis" the confirmation page
+ * polls here every three seconds; the first poll that finds the diagnosis
+ * starts the quote in its own background budget. The submission request has
+ * none left — the synthesis spends it — and waiting for the cron cost up to
+ * two minutes between the diagnosis and the text.
+ */
+export async function handleGetCase(
+  env: Env,
+  ctx: ExecutionContext,
+  token: string,
+): Promise<Response> {
   const found = await getCase(env, token);
   if (!found) throw notFound();
+  if (found.status === 'submitted' && found.diagnosis && !(await getQuote(env, token))) {
+    ctx.waitUntil(
+      sendQuoteForSignature(env, token, 'web').catch((err) =>
+        logEvent(env, token, 'quote_failed', String(err).slice(0, 300)),
+      ),
+    );
+  }
   return json(found);
 }
 

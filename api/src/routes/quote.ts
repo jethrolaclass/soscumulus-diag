@@ -52,6 +52,12 @@ export async function handleQuote(
     throw err;
   }
 
+  if (r.ok && r.already && r.status === 'pending') {
+    return json({
+      sayExactly: 'Je prépare votre devis, ça prend moins d’une minute.',
+      ready: false,
+    });
+  }
   if (r.ok && r.already && r.status === 'failed') {
     return json({
       sayExactly: 'Je n’arrive pas à préparer votre devis pour le moment. Un technicien vous rappelle pour vous le confirmer.',

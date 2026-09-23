@@ -466,7 +466,7 @@ export interface QuoteRow {
   short: string;
   quote: import('./pricing').Quote;
   demo: boolean;
-  status: 'created' | 'sent' | 'signed' | 'declined' | 'expired' | 'failed';
+  status: 'pending' | 'created' | 'sent' | 'signed' | 'declined' | 'expired' | 'failed';
   requestId: string | null;
   signerId: string | null;
   signatureLink: string | null;
@@ -512,8 +512,9 @@ export async function saveQuote(
     signatureLink: string;
   },
 ): Promise<void> {
+  // Replaces the 'pending' claim taken by `claimQuote`.
   await env.DB.prepare(
-    `INSERT INTO quotes (case_token, short, quote, demo, status, youtrust_request_id,
+    `INSERT OR REPLACE INTO quotes (case_token, short, quote, demo, status, youtrust_request_id,
                          youtrust_signer_id, signature_link, created_at)
      VALUES (?, ?, ?, ?, 'created', ?, ?, ?, ?)`,
   )
@@ -521,6 +522,26 @@ export async function saveQuote(
           q.requestId, q.signerId, q.signatureLink, new Date().toISOString())
     .run();
 }
+
+/**
+ * Takes the case's quote slot, or learns someone else has.
+ *
+ * The confirmation page polls every three seconds and any poll that sees the
+ * diagnosis may start the quote; without an atomic claim, two of them a second
+ * apart would each create a signature request and each send a text.
+ */
+export async function claimQuote(env: Env, caseToken: string): Promise<boolean> {
+  const r = await env.DB.prepare(
+    `INSERT OR IGNORE INTO quotes (case_token, short, quote, demo, status, created_at)
+     VALUES (?, ?, '{}', 0, 'pending', ?)`,
+  )
+    .bind(caseToken, `pending-${caseToken}`, new Date().toISOString())
+    .run();
+  return (r.meta.changes ?? 0) === 1;
+}
+
+/** A claim older than this was taken by a request that died before finishing. */
+export const STALE_CLAIM_MS = 3 * 60_000;
 
 /**
  * Records a quote that could not be produced, so the sweep stops retrying it
@@ -573,10 +594,11 @@ export async function findCasesAwaitingQuote(env: Env, limit = 5): Promise<strin
   const { results } = await env.DB.prepare(
     `SELECT c.token FROM cases c
      LEFT JOIN quotes q ON q.case_token = c.token
-     WHERE c.status = 'submitted' AND c.diagnosis IS NOT NULL AND q.case_token IS NULL
+     WHERE c.status = 'submitted' AND c.diagnosis IS NOT NULL
+       AND (q.case_token IS NULL OR (q.status = 'pending' AND q.created_at < ?))
      ORDER BY c.updated_at ASC LIMIT ?`,
   )
-    .bind(limit)
+    .bind(new Date(Date.now() - STALE_CLAIM_MS).toISOString(), limit)
     .all<{ token: string }>();
   return results.map((r) => r.token);
 }
