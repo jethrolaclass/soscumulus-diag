@@ -387,6 +387,25 @@ export async function saveDiagnosis(
     .run();
 }
 
+/**
+ * Whether an event of this kind, with a detail starting with this prefix, has
+ * been logged on the case. The event log is the only place a sent SMS is
+ * recorded, so it is what keeps a retried tool call from texting twice.
+ */
+export async function hasEvent(
+  env: Env,
+  token: string,
+  kind: string,
+  detailPrefix = '',
+): Promise<boolean> {
+  const row = await env.DB.prepare(
+    'SELECT 1 FROM events WHERE case_token = ? AND kind = ? AND COALESCE(detail, \'\') LIKE ? LIMIT 1',
+  )
+    .bind(token, kind, `${detailPrefix}%`)
+    .first();
+  return row !== null;
+}
+
 export async function logEvent(
   env: Env,
   token: string | null,

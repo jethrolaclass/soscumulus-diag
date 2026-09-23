@@ -182,17 +182,19 @@ DÉROULÉ
 5. La question de sécurité : est-ce que de l'eau coule, ou est-ce que le
    disjoncteur a sauté. Si le client l'a déjà dit, tu fais confirmer au lieu de
    redemander.
-6. Tu appelles triage.
+6. Tu appelles triage. Il n'envoie rien.
    transfer = true → tu lis sayExactly, tu transfères. Rien d'autre : pas de
-   photo, pas de devis.
-   transfer = false et smsSent = true → tu lis sayExactly, tu continues.
-   transfer = false, smsSent = false, smsBlocked = true → numéro hors de la
-   liste de test : tu lis sayExactly et tu continues, sans transférer.
-   transfer = false, smsSent = false, smsBlocked = false → le SMS n'a pas pu
-   partir : tu lis sayExactly, tu transfères.
-7. Tu proposes le choix : rester en ligne pendant les photos, ou raccrocher et
-   recevoir le devis par SMS. Sans orienter. Dans les deux cas tu dis qu'on
-   s'en occupe. S'il raccroche, tu le salues.
+   photo, pas de devis, pas de SMS.
+   transfer = false → tu lis sayExactly. Il se termine par la question :
+   rester en ligne pendant les photos, ou raccrocher. Tu attends la réponse.
+7. Tu appelles send_link avec stayOnLine = vrai si le client reste en ligne,
+   faux s'il raccroche. C'est cet appel, et lui seul, qui envoie le SMS : jamais
+   avant que le client ait répondu. Tu lis sayExactly.
+   transfer = true → le SMS n'a pas pu partir : tu transfères.
+   stayOnLine = faux → sayExactly se termine par l'au revoir : tu n'ajoutes
+   rien, l'appel est fini.
+   smsBlocked = vrai → numéro hors de la liste de test : tu continues sans
+   transférer.
 8. S'il reste : tu appelles check_photos toutes les vingt à trente secondes,
    ou quand il dit avoir fini une photo. Tu lis sayExactly. Entre deux, tu te
    tais.
@@ -249,7 +251,7 @@ du tac au tac.
 | **Turn eagerness** | `turn.turn_eagerness` | **Patient** | C'est celui-là. *Eager* et *Normal* font parler l'agent dès la première demi-seconde de silence, avant que la personne ait fini sa pensée. *Patient* attend un vrai silence. Ce n'est pas un délai fixe ajouté avant chaque réponse — ElevenLabs n'en propose pas — mais c'est ce qui produit l'effet recherché : l'agent laisse finir, puis répond. |
 | **Take turn after silence** | `turn.turn_timeout` | **10 s** | Le temps de silence avant que l'agent relance. La valeur par défaut est trop courte pour quelqu'un qui cherche son disjoncteur dans une cave ou qui cadre une photo. Dix secondes laissent faire sans abandonner. |
 | **Interruptions** | *Client events*, onglet *Advanced* | **Activées** | Un client qui dit « non, attendez » doit pouvoir couper. Un agent qu'on ne peut pas interrompre est la définition d'un serveur vocal. |
-| **Soft timeout** | `turn.soft_timeout_config` | `timeout_seconds` : 2,5 — message : « Alors… » — `use_llm_generated_message` : off | Quand un outil met du temps — l'ouverture du dossier, le devis — l'agent glisse un mot au lieu d'un silence. Un « Alors… » suffit ; laisser le modèle générer le remplissage rouvre la porte aux formules creuses. |
+| **Soft timeout** | `turn.soft_timeout_config` | **désactivé** (`timeout_seconds` : -1) | La phrase de remplissage se collait en tête de la réponse suivante : « Un instant, je note. C'est noté, je m'occupe de vous… ». Les outils répondent en moins d'une seconde ; un bref silence sonne plus juste qu'une formule répétée à chaque tour. |
 
 Le premier réglage est celui qui change l'écoute. Les trois autres évitent que
 la patience devienne de l'absence.
@@ -281,7 +283,7 @@ Description à donner au modèle :
 
 ### 2. `triage`
 
-La question de sécurité. Décide du transfert **et** de l'envoi du SMS.
+La question de sécurité. Décide du transfert, **n'envoie rien**.
 
 | | |
 |---|---|
@@ -290,11 +292,28 @@ La question de sécurité. Décide du transfert **et** de l'envoi du SMS.
 | Corps | `leak` (booléen), `powerCut` (booléen) |
 | Capture | `handover` → `handover` |
 
-> Enregistre la réponse à la question de sécurité. Renvoie `transfer` : vrai
-> s'il faut passer l'appel à un technicien. Si `transfer` est faux, envoie au
-> client le SMS contenant son lien de diagnostic et le signale par `smsSent`.
-> `leak` vaut vrai si le client voit de l'eau couler, `powerCut` vaut vrai si
-> son disjoncteur a sauté.
+> Enregistre la réponse à la question de sécurité. Renvoie transfer : vrai
+> s'il faut passer l'appel à un technicien. N'envoie aucun SMS. leak vaut vrai
+> si le client voit de l'eau couler, powerCut vaut vrai si son disjoncteur a
+> sauté.
+
+### 2 bis. `send_link`
+
+Envoie le SMS du lien de diagnostic, **une fois que le client a choisi**.
+
+| | |
+|---|---|
+| Méthode | `POST` |
+| URL | `/api/voice/case/{case_token}/link` |
+| Corps | `stayOnLine` (booléen) |
+| Capture | `handover` → `handover` |
+
+> Envoie au client le SMS avec son lien de diagnostic. À appeler une seule
+> fois, juste après que le client a dit s'il reste en ligne pendant les photos
+> (stayOnLine vrai) ou s'il raccroche (stayOnLine faux) — jamais avant sa
+> réponse. Si transfer est vrai, le SMS n'a pas pu partir : transférer.
+
+Idempotent : un second appel n'envoie pas un second SMS.
 
 ### 3. `check_photos`
 

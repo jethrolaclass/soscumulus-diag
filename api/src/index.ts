@@ -17,6 +17,7 @@ import {
   handleVoiceOpen,
   handleVoiceProgress,
   handleVoiceTriage,
+  handleVoiceLink,
 } from './routes/voice';
 import { handleQuote, handleQuoteAccept } from './routes/quote';
 import { handleGreeting } from './routes/greeting';
@@ -109,6 +110,9 @@ async function route(
     }
     if (seg[2] === 'case' && seg[3] && seg[4] === 'triage' && method === 'POST') {
       return handleVoiceTriage(req, env, seg[3]);
+    }
+    if (seg[2] === 'case' && seg[3] && seg[4] === 'link' && method === 'POST') {
+      return handleVoiceLink(req, env, seg[3]);
     }
     if (seg[2] === 'case' && seg[3] && seg[4] === 'progress' && method === 'GET') {
       return handleVoiceProgress(req, env, seg[3]);

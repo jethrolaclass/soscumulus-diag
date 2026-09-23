@@ -78,10 +78,15 @@ def tool_defs(secret_id=None):
               'reportedIssue': {'type': 'string', 'description': 'Le problème avec les mots du client, sans traduction technique'}},
              [('case_token', 'token'), ('case_ref', 'ref')], secret_id),
         tool('triage',
-             "Enregistre la réponse à la question de sécurité. Renvoie transfer : vrai s'il faut passer l'appel à un technicien. Si transfer est faux, envoie au client le SMS avec son lien et le signale par smsSent. leak vaut vrai si le client voit de l'eau couler, powerCut vaut vrai si son disjoncteur a sauté.",
+             "Enregistre la réponse à la question de sécurité. Renvoie transfer : vrai s'il faut passer l'appel à un technicien. N'envoie aucun SMS. leak vaut vrai si le client voit de l'eau couler, powerCut vaut vrai si son disjoncteur a sauté.",
              'POST', f'{BASE}/api/voice/case/{{case_token}}/triage',
              {'leak': {'type': 'boolean', 'description': "De l'eau coule"},
               'powerCut': {'type': 'boolean', 'description': 'Le disjoncteur a sauté'}},
+             [('handover', 'handover')], secret_id),
+        tool('send_link',
+             "Envoie au client le SMS avec son lien de diagnostic. À appeler une seule fois, juste après que le client a dit s'il reste en ligne pendant les photos (stayOnLine vrai) ou s'il raccroche (stayOnLine faux) — jamais avant sa réponse. Si transfer est vrai, le SMS n'a pas pu partir : transférer.",
+             'POST', f'{BASE}/api/voice/case/{{case_token}}/link',
+             {'stayOnLine': {'type': 'boolean', 'description': 'Vrai si le client reste en ligne pendant les photos, faux s’il raccroche'}},
              [('handover', 'handover')], secret_id),
         tool('check_photos',
              "Indique quelles photos sont arrivées et ce qui a été lu sur l'étiquette. À appeler pendant que le client prend ses photos, toutes les vingt à trente secondes, jamais plus souvent.",
@@ -136,7 +141,9 @@ def intended(llm, temp, tool_ids):
                         'client_message': 'Je vous passe un technicien tout de suite, ne raccrochez pas.',
                         'agent_message': '{{handover}}'}]}}}}},
         'turn': {'turn_eagerness': 'patient', 'turn_timeout': 10,
-                 'soft_timeout_config': {'timeout_seconds': 2.5, 'message': 'Un instant, je note.', 'use_llm_generated_message': False}},
+                 # Off: the filler glued itself to the front of the next reply
+                 # ("Un instant, je note. C'est noté…"), on every tool call.
+                 'soft_timeout_config': {'timeout_seconds': -1, 'message': '…', 'use_llm_generated_message': False}},
     }
 
 # The site's own colours, read off its favicon.
@@ -169,12 +176,31 @@ def cmd_status(_):
     print('webhook      :', (ps.get('workspace_overrides') or {}).get('conversation_initiation_client_data_webhook') or 'aucun')
     print('widget       :', {k: (ps.get('widget') or {}).get(k) for k in ['btn_color', 'focus_color', 'start_call_text']})
 
+SECRET_NAME = 'sos-voice-secret'
+
+def voice_secret_id():
+    """The workspace secret holding VOICE_SECRET, created once and reused.
+
+    Every tool header points at it. Creating one per `apply` left six copies
+    behind; running `tools` without it rewrote every header to a placeholder
+    and would have cut the live agent off from the API.
+    """
+    st, out = call('GET', '/secrets')
+    mine = [x for x in out.get('secrets', []) if x.get('name') == SECRET_NAME]
+    # The one the tools already point at, if any: the others are leftovers.
+    in_use = [x for x in mine if (x.get('used_by') or {}).get('tools')]
+    if in_use or mine:
+        return (in_use or mine)[0]['secret_id']
+    st, out = call('POST', '/secrets', {'type': 'new', 'name': SECRET_NAME, 'value': dev_var('VOICE_SECRET')})
+    if st != 200: sys.exit(f'secret : {st} {out}')
+    return out['secret_id']
+
 def cmd_tools(_):
-    ids = ensure_tools(); (HERE / 'tool-ids.json').write_text(json.dumps(ids, indent=1))
+    ids = ensure_tools(voice_secret_id()); (HERE / 'tool-ids.json').write_text(json.dumps(ids, indent=1))
 
 # ── scenarios ──────────────────────────────────────────────────────────
 ANY = {'type': 'anything'}
-PARAMS = {'open_case': ['firstName', 'lastName', 'phone', 'reportedIssue'], 'triage': ['leak', 'powerCut'],
+PARAMS = {'open_case': ['firstName', 'lastName', 'phone', 'reportedIssue'], 'triage': ['leak', 'powerCut'], 'send_link': ['stayOnLine'],
           'check_photos': [], 'get_quote': [], 'accept_quote': []}
 def mock(obj, tool_name, conds=None):
     return {'mock_result': json.dumps(obj, ensure_ascii=False), 'is_error': False,
@@ -183,9 +209,11 @@ def mock(obj, tool_name, conds=None):
 SAY = {
   'open': "C'est noté, je m'occupe de vous. Votre dossier, c'est le S C - 0 0 9 9.",
   'transfer': 'Dans ce cas je ne vous fais pas attendre : je vous passe tout de suite un technicien, il prend le relais.',
-  'sms': 'Très bien, ce n’est pas une urgence immédiate, on va pouvoir faire ça posément. Je viens de vous envoyer un SMS avec un lien : il vous guide pour trois photos, deux à trois minutes. C’est avec ça qu’on comprend exactement votre panne et qu’on vous apporte la bonne solution.',
+  'triage_ok': 'Très bien, ce n’est pas une urgence immédiate, on va pouvoir faire ça posément. Je vais vous envoyer un SMS avec un lien pour prendre trois photos de votre chauffe-eau : ça ne vous prendra que deux ou trois minutes. Avec ces photos, on comprend exactement votre panne, et on vous envoie ensuite votre devis par SMS, à signer si vous acceptez l’intervention. Préférez-vous rester en ligne pendant que vous les prenez, ou raccrocher et les prendre tranquillement ?',
+  'link_stay': 'C’est parti, je viens de vous envoyer le SMS. Ouvrez le lien quand vous l’avez, je reste en ligne avec vous.',
+  'link_bye': 'C’est parti, je viens de vous envoyer le SMS. Prenez les photos quand vous voulez : dès qu’on les a, vous recevez votre devis par SMS, à signer si vous acceptez l’intervention. Bonne journée, au revoir !',
   'photos': "J'ai bien reçu vos trois photos, et je lis 150 VMI, 150 litres. C'est tout bon, on a ce qu'il faut pour comprendre la panne.",
-  'quote': 'Votre dossier est complet, on a tout ce qu’il faut. Un technicien vous rappelle avec le montant exact et vous propose un rendez-vous.',
+  'quote': "Votre devis est de 317 euros tout compris. Je viens de vous l'envoyer par SMS. Ouvrez le lien, signez le devis en ligne, et un technicien vous rappelle pour le rendez-vous.",
 }
 MOCKS = {
   'open_case': [mock({'sayExactly': SAY['open'], 'token': 'TESTTOKEN', 'ref': 'SC-0099'}, 'open_case')],
@@ -193,10 +221,15 @@ MOCKS = {
     mock({'sayExactly': SAY['transfer'], 'transfer': True, 'smsSent': False,
           'handover': 'Jean Dupont, + 3 3 6 1 2 3 4 5 6 7 8, dossier S C - 0 0 9 9. Fuite d’eau déclarée. '}, 'triage',
          [{'path': 'leak', 'eval': {'type': 'exact', 'expected_value': 'true'}}, {'path': 'powerCut', 'eval': ANY}]),
-    mock({'sayExactly': SAY['sms'], 'transfer': False, 'smsSent': True, 'handover': ''}, 'triage'),
+    mock({'sayExactly': SAY['triage_ok'], 'transfer': False, 'handover': ''}, 'triage'),
+  ],
+  'send_link': [
+    mock({'sayExactly': SAY['link_stay'], 'smsSent': True, 'smsBlocked': False, 'stayOnLine': True, 'transfer': False}, 'send_link',
+         [{'path': 'stayOnLine', 'eval': {'type': 'exact', 'expected_value': 'true'}}]),
+    mock({'sayExactly': SAY['link_bye'], 'smsSent': True, 'smsBlocked': False, 'stayOnLine': False, 'transfer': False}, 'send_link'),
   ],
   'check_photos': [mock({'sayExactly': SAY['photos'], 'complete': True, 'received': 3, 'settled': 3, 'read': ['150 VMI', '150 litres']}, 'check_photos')],
-  'get_quote': [mock({'sayExactly': SAY['quote'], 'ready': True, 'sent': False, 'quote': {'needsHumanPricing': True, 'total': None}}, 'get_quote')],
+  'get_quote': [mock({'sayExactly': SAY['quote'], 'ready': True, 'sent': True, 'quote': {'needsHumanPricing': False, 'total': 317, 'demo': True}}, 'get_quote')],
   'accept_quote': [mock({'ok': True, 'ref': 'SC-0099'}, 'accept_quote')],
 }
 RULES = [
@@ -205,6 +238,7 @@ RULES = [
   "L'agent a demandé le nom, puis le numéro de téléphone, puis a répété le numéro un chiffre à la fois (jamais par paires comme « douze » ou « quatre-vingt-dix-neuf ») pour le faire confirmer, avant d'appeler open_case.",
   "L'agent n'a jamais annoncé un prix, un montant, un délai d'intervention ni un modèle d'appareil qui ne venait pas d'une réponse d'outil.",
   "Après chaque appel d'outil, la réponse de l'agent a commencé par le texte du champ sayExactly, copié tel quel, sans le reformuler ni l'abréger.",
+  "Si send_link a été appelé, il l'a été seulement après que le client a dit s'il restait en ligne ou raccrochait, jamais avant.",
 ]
 SCENARIOS = [
   {'name': 'A — plus d’eau chaude, stressé', 'simulation_max_turns': 16,
@@ -304,9 +338,7 @@ def cmd_apply(a):
     backup.write_text(json.dumps(live, ensure_ascii=False, indent=1)); print('sauvegarde →', backup.relative_to(ROOT))
     if not a.yes and input('Écrire la configuration sur l’agent ? (oui/non) ').strip().lower() != 'oui': sys.exit('abandon')
     # The shared secret goes to ElevenLabs as a workspace secret, never in clear.
-    st, out = call('POST', '/secrets', {'type': 'new', 'name': 'sos-voice-secret', 'value': dev_var('VOICE_SECRET')})
-    if st != 200: sys.exit(f'secret : {st} {out}')
-    secret_id = out['secret_id']; print('secret →', secret_id)
+    secret_id = voice_secret_id(); print('secret →', secret_id)
     tool_ids = ensure_tools(secret_id); (HERE / 'tool-ids.json').write_text(json.dumps(tool_ids, indent=1))
     body = {'conversation_config': deep_merge(live['conversation_config'], intended(a.llm, a.temp, tool_ids)),
             'platform_settings': deep_merge(live.get('platform_settings', {}), {

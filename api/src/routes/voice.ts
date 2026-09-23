@@ -18,6 +18,7 @@ import { BLOCKING_SAFETY_FLAGS } from '../../../shared/types';
 import {
   createCase,
   getCase,
+  hasEvent,
   logEvent,
   saveAnswers,
   setStatus,
@@ -119,14 +120,18 @@ export async function handleVoiceOpen(req: Request, env: Env): Promise<Response>
 interface TriageBody {
   leak?: boolean;
   powerCut?: boolean;
-  /**
-   * `false` answers the triage without texting anyone.
-   *
-   * It exists so a test case can be walked through without putting a real text
-   * on a real phone: the allowlist has been empty since go-live, so every send
-   * here is a send for good.
-   */
-  sendSms?: boolean;
+}
+
+/**
+ * The sentence the technician hears before taking the line, whatever the
+ * reason for the transfer. Built by the API, never by the model.
+ */
+function handover(
+  found: NonNullable<Awaited<ReturnType<typeof getCase>>>,
+  reasons: string[],
+): string {
+  const who = [found.answers.firstName, found.answers.lastName].filter((v) => v).join(' ');
+  return `${who || 'Client'}, ${spell(found.phone)}, dossier ${spell(found.ref)}. ${reasons.join(' ')}`.trim();
 }
 
 /**
@@ -135,6 +140,10 @@ interface TriageBody {
  * Stricter than the web on purpose: on screen the client is asked *where* water
  * is showing and most leaks wait, but the agent asks one yes/no question and
  * sees nothing. Either answer hands the call to a human.
+ *
+ * It sends nothing. The link goes out from `send_link`, once the caller has
+ * said whether they stay on the line — a text that lands while they are still
+ * being asked the question interrupts the very answer it depends on.
  */
 export async function handleVoiceTriage(
   req: Request,
@@ -166,63 +175,114 @@ export async function handleVoiceTriage(
     await sendSafetyAlert(env, found.ref, found.phone, found.city, flags);
   }
 
-  // This is where the link goes out, and only on this branch. The text asks for
-  // three photos; a caller being handed to a technician has no photos to take,
-  // and one sent anyway would reach them mid-emergency.
+  return json({
+    // Each of these carries one of the three things a worried caller needs to
+    // hear — we are on it, we will understand the fault, we will bring a fix —
+    // and none of them describes how the caller feels. The second one also
+    // says what the photos lead to: a quote by text, signed if they agree.
+    sayExactly: transfer
+      ? 'Dans ce cas je ne vous fais pas attendre : je vous passe tout de suite un technicien, il prend le relais.'
+      : 'Très bien, ce n’est pas une urgence immédiate, on va pouvoir faire ça posément. ' +
+        'Je vais vous envoyer un SMS avec un lien pour prendre trois photos de votre chauffe-eau : ' +
+        'ça ne vous prendra que deux ou trois minutes. Avec ces photos, on comprend exactement votre panne, ' +
+        'et on vous envoie ensuite votre devis par SMS, à signer si vous acceptez l’intervention. ' +
+        'Préférez-vous rester en ligne pendant que vous les prenez, ou raccrocher et les prendre tranquillement ?',
+    transfer,
+    // Read to the technician at the start of the transfer, not to the client.
+    handover: handover(found, [
+      body.powerCut ? 'Disjoncteur sauté.' : '',
+      body.leak ? 'Fuite d’eau déclarée.' : '',
+    ].filter(Boolean)),
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Link                                                                */
+/* ------------------------------------------------------------------ */
+
+interface LinkBody {
+  /** The caller's answer: stay on the line while taking the photos, or not. */
+  stayOnLine?: boolean;
+  /**
+   * `false` goes through the motions without texting anyone, so a test case
+   * can be walked end to end: the allowlist has been empty since go-live on the
+   * web side, and every send is a send for good.
+   */
+  sendSms?: boolean;
+}
+
+/**
+ * Texts the diagnosis link, once the caller has chosen.
+ *
+ * Idempotent: a model that calls it twice — a retry, a misheard answer — must
+ * not put two identical texts on the phone.
+ */
+export async function handleVoiceLink(
+  req: Request,
+  env: Env,
+  token: string,
+): Promise<Response> {
+  requireVoiceSecret(req, env);
+
+  const found = await getCase(env, token);
+  if (!found) throw notFound();
+  if (found.status === 'safety_stop') {
+    return json({ sayExactly: '', smsSent: false, transfer: true, handover: handover(found, ['Urgence déclarée.']) });
+  }
+
+  const body = ((await req.json().catch(() => null)) ?? {}) as LinkBody;
+  const stay = body.stayOnLine === true;
+  await logEvent(env, token, 'voice_choice', stay ? 'stay_on_line' : 'hang_up');
+
   const url = `${env.PUBLIC_WEB_URL}/d/${token}`;
-  let smsSent = false;
-  // Three ways of not sending, and only one is a failure. Suppressed or
-  // blocked, the caller carries on without a link; failed, the caller is
-  // handed to someone who can do something about it.
-  let smsBlocked = false;
-  let smsFailed = false;
-  if (transfer) {
-    await logEvent(env, token, 'sms_skipped', 'transfer');
+  let outcome: 'sent' | 'already' | 'blocked' | 'suppressed' | 'failed';
+  if (await hasEvent(env, token, 'sms_sent', 'diag')) {
+    outcome = 'already';
   } else if (body.sendSms === false) {
     await logEvent(env, token, 'sms_suppressed', url);
+    outcome = 'suppressed';
   } else {
     try {
-      const outcome = await sendDiagSms(env, token, found.phone, url, 'voice');
-      smsSent = outcome === 'sent';
-      smsBlocked = outcome === 'blocked';
-      smsFailed = outcome === 'invalid';
+      const r = await sendDiagSms(env, token, found.phone, url, 'voice');
+      outcome = r === 'sent' ? 'sent' : r === 'blocked' ? 'blocked' : 'failed';
     } catch (err) {
       console.error('voice: SMS failed', err);
       await logEvent(env, token, 'sms_to_resend', url);
-      smsFailed = true;
+      outcome = 'failed';
     }
   }
 
-  const who = [found.answers.firstName, found.answers.lastName]
-    .filter((v) => v)
-    .join(' ');
+  if (outcome === 'failed') {
+    return json({
+      sayExactly:
+        'Je n’arrive pas à vous envoyer le SMS, alors je vous passe directement un technicien, il s’occupe de vous.',
+      smsSent: false,
+      transfer: true,
+      handover: handover(found, ['SMS non parti, le client attend son lien.']),
+    });
+  }
 
-  // Built on every call, not only when transferring: the agent also hands over
-  // when the text fails to leave, and it needs the same sentence then.
-  const handover =
-    `${who || 'Client'}, ${spell(found.phone)}, dossier ${spell(found.ref)}. ` +
-    (body.powerCut ? 'Disjoncteur sauté. ' : '') +
-    (body.leak ? 'Fuite d’eau déclarée. ' : '') +
-    (smsFailed ? 'SMS non parti, le client attend son lien. ' : '');
+  // Blocked and suppressed are test situations: nothing reached the phone, so
+  // nothing here claims it did.
+  const reached = outcome === 'sent' || outcome === 'already';
+  const sayExactly = stay
+    ? reached
+      ? 'C’est parti, je viens de vous envoyer le SMS. Ouvrez le lien quand vous l’avez, je reste en ligne avec vous.'
+      : 'Très bien, je reste en ligne avec vous.'
+    : reached
+      ? 'C’est parti, je viens de vous envoyer le SMS. Prenez les photos quand vous voulez : ' +
+        'dès qu’on les a, vous recevez votre devis par SMS, à signer si vous acceptez l’intervention. ' +
+        'Bonne journée, au revoir !'
+      : 'Très bien, on s’en occupe. Bonne journée, au revoir !';
 
   return json({
-    transfer,
-    smsSent,
+    sayExactly,
+    smsSent: reached,
     // True when the voice allowlist held the text back: a test number, not a
     // failure. The agent carries on without a link and without a transfer.
-    smsBlocked,
-    // Read to the technician at the start of the transfer, not to the client.
-    handover,
-    // Each of these carries one of the three things a worried caller needs to
-    // hear — we are on it, we will understand the fault, we will bring a fix —
-    // and none of them describes how the caller feels.
-    sayExactly: transfer
-      ? 'Dans ce cas je ne vous fais pas attendre : je vous passe tout de suite un technicien, il prend le relais.'
-      : smsSent
-        ? 'Très bien, ce n’est pas une urgence immédiate, on va pouvoir faire ça posément. Je viens de vous envoyer un SMS avec un lien : il vous guide pour trois photos, deux à trois minutes. C’est avec ça qu’on comprend exactement votre panne et qu’on vous apporte la bonne solution.'
-        : smsFailed
-          ? 'Très bien, ce n’est pas une urgence immédiate. Je n’arrive pas à vous envoyer le SMS, alors je vous passe directement un technicien, il s’occupe de vous.'
-          : 'Très bien, ce n’est pas une urgence immédiate, on va pouvoir faire ça posément. Je vais vous demander trois photos : c’est avec ça qu’on comprend exactement votre panne.',
+    smsBlocked: outcome === 'blocked',
+    stayOnLine: stay,
+    transfer: false,
   });
 }
 
