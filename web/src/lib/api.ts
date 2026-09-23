@@ -86,12 +86,26 @@ export const skipPhoto = (token: string, slot: PhotoSlot) =>
     { method: 'POST' },
   );
 
-/** Returns as soon as the case is closed; `diagnosis` follows, or does not. */
+/**
+ * Closes the case. `quoteSent` is true when the quote left by text on the tap —
+ * the demo does that; a real price waits for the diagnosis.
+ */
 export const submit = (token: string) =>
-  request<{ status: string; diagnosis: Diagnosis | null }>(
+  request<{ status: string; diagnosis: Diagnosis | null; quoteSent?: boolean }>(
     `/api/case/${token}/submit`,
     { method: 'POST' },
   );
+
+/**
+ * Asks the server to write the diagnosis and waits for it — about a minute.
+ *
+ * Held open on purpose: the server keeps working as long as the browser waits,
+ * whereas work it queues after answering is cut at thirty seconds, which is
+ * shorter than the synthesis. If the client leaves, the server's sweep takes
+ * over; nothing depends on this returning.
+ */
+export const diagnose = (token: string) =>
+  request<{ diagnosis: Diagnosis | null }>(`/api/case/${token}/diagnose`, { method: 'POST' });
 
 /**
  * Waits for the written diagnosis, purely to enrich the confirmation screen.

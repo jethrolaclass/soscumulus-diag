@@ -104,12 +104,12 @@ const UNPRICED = (reason: string): Quote => ({
  * a quote reach a phone and come back signed before a single real rate is
  * known — and it must never be produced with `demo` false.
  */
-function demoQuote(diagnosis: Diagnosis, replacement: Replacement | null): Quote {
+function demoQuote(diagnosis: Diagnosis | null, replacement: Replacement | null): Quote {
   const lines: QuoteLine[] = [
     { label: 'Déplacement', amount: 49 },
     { label: 'Main-d’œuvre', amount: 189 },
   ];
-  if (diagnosis.interventionKind === 'replacement') {
+  if (diagnosis?.interventionKind === 'replacement') {
     lines.push({
       label: replacement ? label(replacement.model) : 'Chauffe-eau de remplacement 150 L',
       amount: 690,
@@ -137,12 +137,15 @@ function label(h: Heater): string {
 }
 
 export function buildQuote(
-  diagnosis: Diagnosis,
+  diagnosis: Diagnosis | null,
   nameplate: Nameplate | null,
   installation: Installation | null,
   demo = false,
 ): Quote {
+  // A demo quote is fixed amounts: it does not wait for the written diagnosis,
+  // which takes close to a minute. A real one prices what the diagnosis found.
   if (demo) return demoQuote(diagnosis, findReplacement(nameplate, installation));
+  if (!diagnosis) return UNPRICED('Un technicien vous rappelle pour vous confirmer le montant.');
 
   if (diagnosis.interventionKind === 'undetermined') {
     return UNPRICED(

@@ -18,7 +18,7 @@ import {
   setStatus,
 } from '../lib/db';
 import { pushReport, sendSafetyAlert } from '../lib/report';
-import { sendQuoteForSignature } from '../lib/signature-flow';
+import { flushIntervention, sendQuoteForSignature } from '../lib/signature-flow';
 import { badRequest, json, notFound } from '../lib/http';
 
 /**
@@ -98,7 +98,7 @@ export async function handleAnswers(
 export async function handleSubmit(
   _req: Request,
   env: Env,
-  ctx: ExecutionContext,
+  _ctx: ExecutionContext,
   token: string,
 ): Promise<Response> {
   const found = await getCase(env, token);
@@ -107,26 +107,66 @@ export async function handleSubmit(
   // Already in: a second tap, or a client coming back to the link, must not
   // start a second synthesis. The diagnosis may still be on its way.
   if (found.status === 'submitted') {
-    return json({ status: 'submitted', diagnosis: found.diagnosis });
+    return json({ status: 'submitted', diagnosis: found.diagnosis, quoteSent: false });
   }
 
-  // The case is closed here, before the diagnosis exists. The synthesis is a
-  // high-effort call: twenty-five seconds and more, which is a long time to
-  // hold a client standing in a cellar on a spinner. If they close the tab in
-  // the meantime the file must already be ours — a submission that only counts
-  // once the model has answered is a submission we lose.
-  await closeAndDiagnose(env, ctx, token, found);
+  // The case is closed here, before the diagnosis exists — if the client
+  // closes the tab now, the file is already ours. The synthesis itself is not
+  // started here: it takes close to a minute, and work started after the
+  // response is cut at thirty seconds. The page asks for it next, on
+  // /diagnose, and holds that request open; the cron catches a closed tab.
+  await setStatus(env, token, 'submitted');
+  await logEvent(env, token, 'case_submitted', `panel=${found.panel.captured}`);
 
-  return json({ status: 'submitted', diagnosis: null });
+  // The button says "Recevoir mon devis": a demo quote has fixed amounts, so
+  // it leaves now, on the tap, rather than a minute later behind the diagnosis.
+  let quoteSent = false;
+  if (env.QUOTE_DEMO === '1') {
+    try {
+      const r = await sendQuoteForSignature(env, token, 'web', { retryFailed: true });
+      quoteSent = r.ok && !r.already && r.sms === 'sent';
+    } catch (err) {
+      // Never blocks the submission: the case is in, the team is told.
+      console.error('quote at submit failed', err);
+    }
+  }
+
+  return json({ status: 'submitted', diagnosis: null, quoteSent });
 }
 
 /**
- * Closes the case and starts the synthesis, once.
+ * Writes the diagnosis while the page waits for it.
  *
- * Shared with the quote route: a client who goes through the phone agent never
- * presses "Recevoir mon devis", and their file must still close and be
- * diagnosed the same way.
+ * A request the browser is still holding is not cut at thirty seconds, unlike
+ * the work queued after a response: this is what lets a one-minute synthesis
+ * finish in the normal path instead of the cron's. Touching the case first
+ * pushes the cron's retry past the synthesis, so the two never run together.
  */
+export async function handleDiagnose(
+  env: Env,
+  ctx: ExecutionContext,
+  token: string,
+): Promise<Response> {
+  const found = await getCase(env, token);
+  if (!found) throw notFound();
+  if (found.status !== 'submitted') return json({ error: 'not_submitted' }, 409);
+  if (found.diagnosis) return json({ diagnosis: found.diagnosis });
+
+  await setStatus(env, token, 'submitted');
+  await diagnoseInBackground(env, token, found);
+
+  const after = await getCase(env, token);
+  // A real price needs the diagnosis; a demo quote has already left at submit.
+  if (after?.diagnosis && env.QUOTE_DEMO !== '1' && !(await getQuote(env, token))) {
+    ctx.waitUntil(
+      sendQuoteForSignature(env, token, 'web').catch((err) =>
+        logEvent(env, token, 'quote_failed', String(err).slice(0, 300)),
+      ),
+    );
+  }
+  return json({ diagnosis: after?.diagnosis ?? null });
+}
+
 export async function closeAndDiagnose(
   env: Env,
   ctx: ExecutionContext,
@@ -140,7 +180,9 @@ export async function closeAndDiagnose(
 }
 
 /** Retry window: long enough that a synthesis still in flight is left alone. */
-const DIAGNOSIS_RETRY_AFTER_MS = 90_000;
+// Longer than a synthesis, which runs close to a minute: the page's own
+// /diagnose request must finish before the cron considers the case abandoned.
+const DIAGNOSIS_RETRY_AFTER_MS = 150_000;
 
 /**
  * Finishes the cases whose background synthesis never landed.
@@ -200,4 +242,6 @@ async function diagnoseInBackground(
   }
 
   await pushReport(env, token, { ...found, status: 'submitted', diagnosis });
+  // A client who signed before the sheet existed is waiting on it.
+  await flushIntervention(env, token);
 }

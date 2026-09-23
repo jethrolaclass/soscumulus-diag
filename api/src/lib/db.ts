@@ -602,3 +602,20 @@ export async function findCasesAwaitingQuote(env: Env, limit = 5): Promise<strin
     .all<{ token: string }>();
   return results.map((r) => r.token);
 }
+
+/**
+ * Signed quotes whose intervention email never left — deferred while waiting
+ * for the sheet, or cut before it could be sent. The cron flushes them.
+ */
+export async function findDeferredInterventions(env: Env, olderThanMs: number, limit = 5): Promise<string[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT q.case_token AS token FROM quotes q
+     WHERE q.status = 'signed' AND q.signed_at < ?
+       AND NOT EXISTS (SELECT 1 FROM events e WHERE e.case_token = q.case_token
+                       AND e.kind IN ('intervention_requested', 'intervention_request_failed'))
+     LIMIT ?`,
+  )
+    .bind(new Date(Date.now() - olderThanMs).toISOString(), limit)
+    .all<{ token: string }>();
+  return results.map((r) => r.token);
+}

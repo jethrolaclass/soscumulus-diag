@@ -4,9 +4,9 @@
  */
 
 import type { Env } from '../env';
-import { findCasesAwaitingQuote, getQuoteByShort, logEvent } from '../lib/db';
+import { findCasesAwaitingQuote, findDeferredInterventions, getQuoteByShort, logEvent } from '../lib/db';
 import { json } from '../lib/http';
-import { completeSignature, sendQuoteForSignature } from '../lib/signature-flow';
+import { completeSignature, requestIntervention, sendQuoteForSignature } from '../lib/signature-flow';
 import { webhookIsGenuine } from '../lib/youtrust';
 
 /**
@@ -83,6 +83,11 @@ export async function resumeQuotes(env: Env): Promise<number> {
       console.error(`quote failed for ${token}`, err);
       await logEvent(env, token, 'quote_failed', String(err).slice(0, 160));
     }
+  }
+  // Signed, and the intervention email still waiting on a sheet the report
+  // never confirmed: after five minutes, send it with what exists.
+  for (const token of await findDeferredInterventions(env, 5 * 60_000)) {
+    await requestIntervention(env, token).catch((err) => console.error('deferred intervention', err));
   }
   return sent;
 }

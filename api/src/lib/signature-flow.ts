@@ -20,6 +20,7 @@ import {
   getCase,
   getQuote,
   getQuoteByRequest,
+  hasEvent,
   claimQuote,
   deleteQuote,
   logEvent,
@@ -56,8 +57,9 @@ export async function sendQuoteForSignature(
 ): Promise<QuoteOutcome> {
   const found = await getCase(env, token);
   if (!found) return { ok: false, reason: 'not_found' };
-
-  if (!found.diagnosis) return { ok: false, reason: 'no_diagnosis' };
+  // A demo quote has fixed amounts and leaves on the tap; a real one prices
+  // what the diagnosis found, so it waits for it.
+  if (!found.diagnosis && env.QUOTE_DEMO !== '1') return { ok: false, reason: 'no_diagnosis' };
 
   const existing = await getQuote(env, token);
   const stale =
@@ -92,7 +94,8 @@ async function produceAndSend(
   found: NonNullable<Awaited<ReturnType<typeof getCase>>>,
   channel: SmsChannel,
 ): Promise<QuoteOutcome> {
-  if (!found.diagnosis) return { ok: false, reason: 'no_diagnosis' };
+  const demo = env.QUOTE_DEMO === '1';
+  if (!found.diagnosis && !demo) return { ok: false, reason: 'no_diagnosis' };
   const a = found.answers;
   const email = a.email?.trim();
   if (!email || !a.firstName?.trim() || !a.lastName?.trim()) {
@@ -100,7 +103,6 @@ async function produceAndSend(
     return { ok: false, reason: 'missing_contact' };
   }
 
-  const demo = env.QUOTE_DEMO === '1';
   const nameplate: Nameplate | null = found.photos[1].analysis?.nameplate ?? null;
   const installation: Installation | null = found.photos[2].analysis?.installation ?? null;
   const quote = buildQuote(found.diagnosis, nameplate, installation, demo);
@@ -119,7 +121,7 @@ async function produceAndSend(
       phone: found.phone,
       email,
     },
-    summary: found.diagnosis.summary,
+    summary: found.diagnosis?.summary ?? objectLine(found, nameplate),
     quote,
   });
 
@@ -174,6 +176,11 @@ async function produceAndSend(
 /**
  * Called by the webhook, in the background: the webhook itself has answered
  * 200 already, because Youtrust gives it one second and this takes more.
+ *
+ * The email carries the intervention sheet, and a client who signs within a
+ * minute of the text can beat the sheet to it — the diagnosis behind it takes
+ * about that long. Then the email waits: `flushIntervention` sends it once the
+ * report has run, and the cron sends it anyway if the report never says so.
  */
 export async function completeSignature(env: Env, requestId: string): Promise<void> {
   const q = await getQuoteByRequest(env, requestId);
@@ -187,22 +194,47 @@ export async function completeSignature(env: Env, requestId: string): Promise<vo
   await markQuoteSigned(env, q.caseToken);
   await logEvent(env, q.caseToken, 'quote_signed', requestId);
 
-  const found = await getCase(env, q.caseToken);
-  if (!found) return;
+  const reportRan =
+    (await hasEvent(env, q.caseToken, 'report_generated')) ||
+    (await hasEvent(env, q.caseToken, 'report_failed'));
+  if (!reportRan) {
+    await logEvent(env, q.caseToken, 'intervention_deferred', 'waiting for the sheet');
+    return;
+  }
+  await requestIntervention(env, q.caseToken);
+}
+
+/** After a report: send the intervention email a signature left waiting. */
+export async function flushIntervention(env: Env, caseToken: string): Promise<void> {
+  const q = await getQuote(env, caseToken);
+  if (q?.status === 'signed') await requestIntervention(env, caseToken);
+}
+
+/** Idempotent: an email already sent, or already failed, is not sent again. */
+export async function requestIntervention(env: Env, caseToken: string): Promise<void> {
+  if (
+    (await hasEvent(env, caseToken, 'intervention_requested')) ||
+    (await hasEvent(env, caseToken, 'intervention_request_failed'))
+  ) {
+    return;
+  }
+  const q = await getQuote(env, caseToken);
+  const found = await getCase(env, caseToken);
+  if (!q?.requestId || !found) return;
 
   let signedPdf: string | null = null;
   try {
-    signedPdf = toBase64(await downloadSigned(env, requestId));
+    signedPdf = toBase64(await downloadSigned(env, q.requestId));
   } catch (err) {
     console.error('signed PDF download failed', err);
-    await logEvent(env, q.caseToken, 'signed_pdf_unavailable', String(err).slice(0, 160));
+    await logEvent(env, caseToken, 'signed_pdf_unavailable', String(err).slice(0, 160));
   }
 
   const a = found.answers;
   const ok = await pushInterventionRequest(env, {
     ref: found.ref,
-    token: q.caseToken,
-    caseUrl: `${env.PUBLIC_WEB_URL}/d/${q.caseToken}`,
+    token: caseToken,
+    caseUrl: `${env.PUBLIC_WEB_URL}/d/${caseToken}`,
     to: env.INTERVENTION_EMAIL,
     client: {
       firstName: a.firstName ?? '',
@@ -216,14 +248,33 @@ export async function completeSignature(env: Env, requestId: string): Promise<vo
     diagnosis: found.diagnosis,
     quote: q.quote,
     demo: q.demo,
-    signedAt: new Date().toISOString(),
+    signedAt: q.signedAt ?? new Date().toISOString(),
     signedPdf,
   });
   await logEvent(
     env,
-    q.caseToken,
+    caseToken,
     ok ? 'intervention_requested' : 'intervention_request_failed',
     env.INTERVENTION_EMAIL,
+  );
+}
+
+/** What the quote is for, when the written diagnosis is not there yet. */
+function objectLine(
+  found: NonNullable<Awaited<ReturnType<typeof getCase>>>,
+  nameplate: Nameplate | null,
+): string {
+  const unit = nameplate?.readable
+    ? [nameplate.brand, nameplate.model, nameplate.capacityLiters ? `${nameplate.capacityLiters} L` : null]
+        .filter(Boolean)
+        .join(' ')
+    : '';
+  const issue = found.reportedIssue?.trim();
+  return (
+    'Intervention sur chauffe-eau' +
+    (unit ? ` (${unit})` : '') +
+    (issue ? ` — problème signalé : « ${issue} ».` : '.') +
+    ' Diagnostic établi à distance à partir des photos transmises.'
   );
 }
 

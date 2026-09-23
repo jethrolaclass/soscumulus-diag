@@ -66,6 +66,7 @@ const state = {
     3: emptyCaptureUi(),
   } as Record<PhotoSlot, CaptureUi>,
   diagnosis: null as Diagnosis | null,
+  quoteSent: false,
   submitting: false,
   /** Photo rejected by the local pre-filter, kept if the client insists. */
   pendingBlob: null as Blob | null,
@@ -556,7 +557,7 @@ function doneScreen(): string {
 
   return `
     <div class="done-hero"><div class="check">✓</div>
-      <h1>Votre dossier est parti.</h1>
+      <h1>${state.quoteSent ? 'Votre devis est parti par SMS.' : 'Votre dossier est parti.'}</h1>
       <p class="lead">${diagnosis ? escapeHtml(diagnosis.summary) : 'Notre technicien examine vos éléments.'}</p>
     </div>
     <div class="card recap">
@@ -567,10 +568,17 @@ function doneScreen(): string {
     </div>
     <div class="card">
       <h2>Et ensuite ?</h2>
-      <ol class="steps">
+      <ol class="steps">${
+        state.quoteSent
+          ? `
+        <li>Ouvrez le SMS que vous venez de recevoir.</li>
+        <li>Signez le devis en ligne si vous acceptez l'intervention.</li>
+        <li>Un technicien vous rappelle pour fixer le rendez-vous, et arrive avec la bonne pièce.</li>`
+          : `
         <li>Un technicien analyse votre dossier.</li>
         <li>Il vous rappelle avec un diagnostic et un tarif.</li>
-        <li>Si une intervention est nécessaire, il arrive avec la bonne pièce.</li>
+        <li>Si une intervention est nécessaire, il arrive avec la bonne pièce.</li>`
+      }
       </ol>
     </div>
   `;
@@ -1262,6 +1270,7 @@ async function onSubmit(): Promise<void> {
     await flushAnswers();
     const res = await api.submit(state.token);
     state.diagnosis = res.diagnosis;
+    state.quoteSent = res.quoteSent === true;
     state.data = await api.getCase(state.token);
     state.screen = 's6';
   } catch {
@@ -1275,7 +1284,11 @@ async function onSubmit(): Promise<void> {
   // so, and fills in if it arrives while they are still looking. Nothing waits
   // on it — the case is closed either way.
   if (!state.diagnosis) {
-    const diagnosis = await api.waitForDiagnosis(state.token);
+    // Asked for rather than polled: this request is what gives the server the
+    // minute it needs. The poll is only the fallback for a dropped connection.
+    const diagnosis =
+      (await api.diagnose(state.token).then((r) => r.diagnosis).catch(() => null)) ??
+      (await api.waitForDiagnosis(state.token));
     if (diagnosis && state.screen === 's6') {
       state.diagnosis = diagnosis;
       render();

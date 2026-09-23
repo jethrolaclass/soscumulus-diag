@@ -32,7 +32,7 @@ export async function handleQuote(
   const found = await getCase(env, token);
   if (!found) throw notFound();
 
-  if (!found.diagnosis) {
+  if (!found.diagnosis && env.QUOTE_DEMO !== '1') {
     await closeAndDiagnose(env, ctx, token, found);
     return json({
       sayExactly:

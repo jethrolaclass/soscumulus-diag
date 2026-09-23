@@ -5,6 +5,7 @@ import {
   handleGetCase,
   handleAnswers,
   handleSubmit,
+  handleDiagnose,
   resumeDiagnoses,
 } from './routes/case';
 import {
@@ -164,6 +165,11 @@ async function route(
 
     if (seg[3] === 'quote' && seg[4] === 'accept' && method === 'POST') {
       return handleQuoteAccept(req, env, token);
+    }
+
+    // POST /api/case/:token/diagnose — held open by the page, see handleDiagnose
+    if (seg[3] === 'diagnose' && seg.length === 4 && method === 'POST') {
+      return handleDiagnose(env, ctx, token);
     }
 
     if (seg[3] === 'submit' && seg.length === 4 && method === 'POST') {

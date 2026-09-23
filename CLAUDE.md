@@ -151,5 +151,12 @@ npm run build          # vérifie aussi les types
   secret du webhook passe en paramètre de requête.
 - `createImageBitmap(file, { imageOrientation: 'from-image' })` est obligatoire
   — sans lui, une photo iPhone sur deux arrive couchée.
+- **Le travail lancé après la réponse (`ctx.waitUntil`) est coupé à 30 s ; une
+  requête que le navigateur attend encore ne l'est pas.** La synthèse dure
+  près d'une minute avec photos : lancée en arrière-plan, elle mourait sans
+  laisser de trace et seul le cron la finissait, deux à quatre minutes plus
+  tard. La page la demande donc sur `POST /api/case/:token/diagnose` et garde
+  la requête ouverte ; le cron ne rattrape que les onglets fermés. Tout
+  travail de plus de vingt secondes suit la même règle.
 - Le cache prompt ne s'amorce qu'au-delà de 512 tokens de préfixe sur Opus 5 :
   raccourcir `PREAMBLE` coûterait ~10× sur l'entrée.
