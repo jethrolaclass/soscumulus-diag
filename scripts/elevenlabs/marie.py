@@ -111,7 +111,12 @@ def ensure_tools(secret_id=None):
     return ids
 
 # ── the intended agent configuration ─────────────────────────────────
-DYN = {'greeting': '', 'case_token': '', 'case_ref': '', 'handover': ''}
+# The initiation webhook only runs for inbound Twilio calls: a widget — ours or
+# the test button in the ElevenLabs dashboard — never calls it, and an empty
+# greeting stops the conversation before it starts. This default is what
+# those conversations open with; phone calls get the webhook's random pick.
+DEFAULT_GREETING = 'SOS Cumulus bonjour ! Marie à votre écoute, comment puis-je vous aider ?'
+DYN = {'greeting': DEFAULT_GREETING, 'case_token': '', 'case_ref': '', 'handover': ''}
 
 def intended(llm, temp, tool_ids):
     return {
@@ -306,6 +311,9 @@ def cmd_apply(a):
     body = {'conversation_config': deep_merge(live['conversation_config'], intended(a.llm, a.temp, tool_ids)),
             'platform_settings': deep_merge(live.get('platform_settings', {}), {
                 'widget': WIDGET,
+                # Declaring the webhook URL is not enough: without this flag the
+                # agent never calls it, even on a Twilio call.
+                'overrides': {'enable_conversation_initiation_client_data_from_webhook': True},
                 'workspace_overrides': {'conversation_initiation_client_data_webhook': {'url': f'{BASE}/api/voice/greeting', 'request_headers': {}}}})}
     st, out = call('PATCH', f'/agents/{AGENT}', body)
     if st != 200: sys.exit(f'PATCH agent : {st} {json.dumps(out, ensure_ascii=False)[:1500]}')

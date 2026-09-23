@@ -131,7 +131,24 @@
   </div>
 </main>
 
-<elevenlabs-convai agent-id="agent_3201m2jt9ec5ejkv1c4ycg2nqsdc"></elevenlabs-convai>
+<elevenlabs-convai id="marie" agent-id="agent_3201m2jt9ec5ejkv1c4ycg2nqsdc"></elevenlabs-convai>
+<script>
+  // The greeting webhook only runs for phone calls, so the widget supplies the
+  // variables itself. Same three sentences as api/src/routes/greeting.ts —
+  // change them there first.
+  (function () {
+    var greetings = [
+      "SOS Cumulus bonjour ! Marie à votre écoute, comment puis-je vous aider ?",
+      "SOS Cumulus bonjour ! Marie à l’appareil, que puis-je pour vous ?",
+      "Bonjour, je suis Marie de SOS Cumulus, en quoi puis-je vous aider ?"
+    ];
+    document.getElementById("marie").setAttribute("dynamic-variables", JSON.stringify({
+      greeting: greetings[Math.floor(Math.random() * greetings.length)],
+      case_token: "", case_ref: "", handover: "",
+      client_first_name: "", client_last_name: "", client_phone: ""
+    }));
+  })();
+</script>
 <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 </body>
 </html>

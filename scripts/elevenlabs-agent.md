@@ -67,6 +67,15 @@ quel champ de formulaire : c'est le `reportedIssue` du dossier.
 | Méthode | `POST` |
 | URL | `https://diag-api.soscumulus.fr/api/voice/greeting` |
 
+**Il ne s'exécute que pour les appels Twilio entrants**, et seulement si
+l'option *Fetch conversation initiation data* est activée dans l'onglet
+Security de l'agent (`enable_conversation_initiation_client_data_from_webhook`).
+Un widget ne l'appelle jamais — ni `scripts/marie-test.html`, ni le bouton de
+test d'ElevenLabs. C'est pourquoi `greeting` a une valeur par défaut non vide
+sur l'agent, et pourquoi la page de test passe ses propres variables : sans
+elles, la conversation s'arrête avant le premier mot sur « Missing required
+dynamic variables in first message ».
+
 Il renvoie `greeting` plus toutes les autres variables dynamiques à vide —
 ElevenLabs refuse une réponse qui en omettrait une, même si elle n'est remplie
 que plus tard par un outil.
