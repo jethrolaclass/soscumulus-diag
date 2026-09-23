@@ -14,6 +14,8 @@ export interface Env {
   LEAD_SECRET: string;
   /** Shared secret for the report-generation webhook (Apps Script). */
   REPORT_SECRET: string;
+  /** Shared with the ElevenLabs agent, sent as `x-voice-secret`. */
+  VOICE_SECRET: string;
 
   /* Variables (wrangler.toml) -------------------------------------- */
   /** Public origin of the API, e.g. https://diag-api.soscumulus.fr */
@@ -37,6 +39,8 @@ export interface Env {
    * receives their link.
    */
   SMS_ALLOWLIST?: string;
+  /** Same shape, applied to texts the voice agent triggers. */
+  SMS_ALLOWLIST_VOICE?: string;
   /** "true" to log token consumption. */
   LOG_USAGE?: string;
 }

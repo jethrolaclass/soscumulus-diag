@@ -29,6 +29,11 @@ EMERGENCY_PHONE   = "+33621560983"
 # les autres dossiers restent créés et leur lien valide, mais rien ne part, et
 # l'e-mail de lead le signale à l'équipe.
 SMS_ALLOWLIST     = ""
+# Same rule, voice path only: texts triggered by the phone agent go to these
+# numbers and no other. Empty would open it to every caller. It stays filled
+# while the agent is being tested by ear, because a tester who gives a random
+# number would otherwise put a real link on a stranger's phone.
+SMS_ALLOWLIST_VOICE = "+33621560983,+33699872414,+33684780721"
 LOG_USAGE         = "true"
 
 [[d1_databases]]

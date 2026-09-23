@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marie — test de l'agent vocal · SOS Cumulus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+<style>
+  /* Colours are the site's own, read off its favicon: no vendor demo look. */
+  :root {
+    --navy: #1B3A5C;
+    --orange: #FF5B29;
+    --ink: #1b2430;
+    --gray: #6b7a8f;
+    --ice: #b9c6da;
+    --paper: #f6f8fb;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: Montserrat, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    padding-inline: 16px;
+    padding-block: 0 110px; /* the widget bubble lives bottom-right */
+  }
+  header { background: var(--navy); color: #fff; margin-inline: -16px; padding: 18px 16px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand svg { flex: none; }
+  .brand strong { font-size: 1.1rem; letter-spacing: .02em; }
+  .brand span { display: block; font-size: .8rem; color: var(--ice); font-weight: 500; margin-top: 2px; }
+  h1 { font-size: 1.55rem; margin: 30px 0 8px; color: var(--navy); font-weight: 800; }
+  .lead { margin: 0 0 20px; color: var(--gray); line-height: 1.55; }
+  .how {
+    background: var(--card); border-left: 4px solid var(--orange); border-radius: 10px;
+    padding: 14px 16px; margin: 0 0 20px; line-height: 1.6;
+  }
+  .how b { color: var(--orange); }
+  .warn {
+    background: #fff3ee; border: 1px solid #ffc9b5; border-radius: 10px;
+    padding: 12px 14px; margin: 0 0 28px; font-size: .92rem; line-height: 1.55;
+  }
+  .warn strong { color: #c2410c; }
+  h2 { font-size: 1.05rem; color: var(--navy); margin: 28px 0 10px; font-weight: 700; }
+  .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .card {
+    background: var(--card); border: 1px solid #e3e9f2; border-radius: 12px;
+    padding: 14px 16px; line-height: 1.55; font-size: .93rem;
+  }
+  .tag {
+    display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+    color: #fff; background: var(--navy); border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;
+  }
+  .tag.hot { background: var(--orange); }
+  .card b { color: var(--navy); }
+  ul.listen { padding-left: 18px; line-height: 1.75; margin: 0; }
+  ul.listen li::marker { color: var(--orange); }
+  .state {
+    margin-top: 28px; font-size: .88rem; color: var(--gray); line-height: 1.6;
+    border-top: 1px solid #e3e9f2; padding-top: 14px;
+  }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: .85em; background: #eef2f7; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap brand">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="44" height="44">
+  <rect width="64" height="64" rx="14" fill="#1B3A5C"/>
+  <text x="32" y="30" font-family="Montserrat, Arial, sans-serif" font-size="20" font-weight="800" fill="#ffffff" text-anchor="middle">SOS</text>
+  <g transform="translate(24,38)">
+    <rect x="0" y="6" width="16" height="5" rx="2" fill="#FF5B29"/>
+    <rect x="5.5" y="0.5" width="5" height="16" rx="2" fill="#FF5B29"/>
+  </g>
+</svg>
+    <div>
+      <strong>SOS Cumulus</strong>
+      <span>Page interne · test de l'agent vocal</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Parler à Marie</h1>
+  <p class="lead">Cette page appelle l'agent vocal directement depuis le navigateur, sans numéro de téléphone. Même agent, même voix, même déroulé qu'au bout du fil.</p>
+
+  <div class="how">
+    <b>1.</b> Cliquez sur la bulle en bas à droite.&nbsp;
+    <b>2.</b> Autorisez le micro.&nbsp;
+    <b>3.</b> Parlez comme au téléphone — phrases courtes, un peu pressé, comme un vrai client.
+  </div>
+
+  <div class="warn">
+    <strong>Ce sont de vrais appels.</strong> Chaque conversation consomme des crédits ElevenLabs. Et dès que les outils de l'agent seront branchés sur l'API, donner un numéro de téléphone ouvrira un vrai dossier et <strong>pourra envoyer un vrai SMS</strong> — ne donnez que le vôtre.
+  </div>
+
+  <h2>Trois clients à jouer</h2>
+  <p class="lead" style="margin-bottom:12px">Les mêmes scénarios que les tests automatiques, pour comparer ce que vous entendez à ce qu'ils mesurent.</p>
+  <div class="cards">
+    <div class="card">
+      <span class="tag">A · Plus d'eau chaude</span><br>
+      <b>Jean Dupont</b>, stressé : plus d'eau chaude depuis ce matin, des enfants à doucher ce soir. Pas d'eau par terre, disjoncteur en place. Il reste en ligne pendant les photos.
+    </div>
+    <div class="card">
+      <span class="tag hot">B · Fuite</span><br>
+      <b>Sophie Martin</b>, affolée : de l'eau coule sous le chauffe-eau, la flaque grandit. Elle le dit dès la première phrase et veut quelqu'un vite.
+    </div>
+    <div class="card">
+      <span class="tag">C · Le prix d'abord</span><br>
+      <b>Karim Benali</b> : bruit bizarre, eau tiède. Il demande le prix avant tout et insiste une fois. Ensuite il préfère raccrocher et recevoir le devis par SMS.
+    </div>
+  </div>
+
+  <h2>Ce qu'il faut écouter</h2>
+  <ul class="listen">
+    <li>L'accueil est l'une des trois phrases prévues, rien d'ajouté.</li>
+    <li>Elle rassure en disant ce qu'on va faire — jamais « je comprends que… ».</li>
+    <li>Le nom, puis le numéro, <b>répété chiffre par chiffre</b>.</li>
+    <li>La question de sécurité en une fois : de l'eau qui coule, ou le disjoncteur.</li>
+    <li>Fuite → transfert immédiat, sans parler de photos ni de devis.</li>
+    <li>Pas de fuite → elle <b>annonce que le SMS est parti</b>, puis propose de rester en ligne ou de raccrocher.</li>
+    <li>Aucun prix, aucun délai, aucun modèle qu'un outil n'a pas donné.</li>
+    <li>Une ou deux phrases par tour, jamais trois.</li>
+  </ul>
+
+  <div class="state">
+    Ce widget parle à l'agent <code>agent_3201m2jt9ec5ejkv1c4ycg2nqsdc</code> <b>tel qu'il est configuré sur ElevenLabs</b>, pas tel qu'il est décrit dans <code>scripts/elevenlabs-agent.md</code>. Tant que la configuration n'y a pas été appliquée, vous entendez l'ancien prompt, sans outils.
+  </div>
+</main>
+
+<elevenlabs-convai agent-id="agent_3201m2jt9ec5ejkv1c4ycg2nqsdc"></elevenlabs-convai>
+<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+</body>
+</html>

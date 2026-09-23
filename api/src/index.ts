@@ -13,6 +13,13 @@ import {
   handleSkipPhoto,
 } from './routes/photo';
 import { handlePanelFrame, handlePanelVideo } from './routes/panel';
+import {
+  handleVoiceOpen,
+  handleVoiceProgress,
+  handleVoiceTriage,
+} from './routes/voice';
+import { handleQuote, handleQuoteAccept } from './routes/quote';
+import { handleGreeting } from './routes/greeting';
 import { handleImage } from './routes/image';
 import { json, preflight, withCors, ApiHttpError } from './lib/http';
 
@@ -76,6 +83,24 @@ async function route(
     return handleLead(req, env, ctx);
   }
 
+  // Voice agent. Same data, same tables — only the way in differs.
+  if (seg[1] === 'voice') {
+    // Called by ElevenLabs as it sets the conversation up, before the caller
+    // hears anything. Deliberately unauthenticated — see the route.
+    if (seg[2] === 'greeting' && seg.length === 3 && method === 'POST') {
+      return handleGreeting();
+    }
+    if (seg[2] === 'case' && seg.length === 3 && method === 'POST') {
+      return handleVoiceOpen(req, env);
+    }
+    if (seg[2] === 'case' && seg[3] && seg[4] === 'triage' && method === 'POST') {
+      return handleVoiceTriage(req, env, seg[3]);
+    }
+    if (seg[2] === 'case' && seg[3] && seg[4] === 'progress' && method === 'GET') {
+      return handleVoiceProgress(req, env, seg[3]);
+    }
+  }
+
   if (seg[1] === 'case' && seg[2]) {
     const token = seg[2];
 
@@ -114,7 +139,15 @@ async function route(
     if (seg[3] === 'panel' && seg[4] === 'video' && method === 'POST') {
       return handlePanelVideo(req, env, token);
     }
-    // POST /api/case/:token/submit
+    // POST /api/case/:token/quote — the voice agent, once the photos are in
+    if (seg[3] === 'quote' && seg.length === 4 && method === 'POST') {
+      return handleQuote(req, env, ctx, token);
+    }
+
+    if (seg[3] === 'quote' && seg[4] === 'accept' && method === 'POST') {
+      return handleQuoteAccept(req, env, token);
+    }
+
     if (seg[3] === 'submit' && seg.length === 4 && method === 'POST') {
       return handleSubmit(req, env, ctx, token);
     }

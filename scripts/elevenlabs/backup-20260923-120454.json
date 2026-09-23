@@ -1,0 +1,550 @@
+{
+ "agent_id": "agent_3201m2jt9ec5ejkv1c4ycg2nqsdc",
+ "name": "SOS Cumulus v1",
+ "conversation_config": {
+  "asr": {
+   "quality": "high",
+   "provider": "scribe_realtime",
+   "user_input_audio_format": "pcm_16000",
+   "keywords": [],
+   "hold_session_across_commit": false,
+   "use_scribe_v3": false
+  },
+  "turn": {
+   "turn_timeout": 7.0,
+   "initial_wait_time": null,
+   "silence_end_call_timeout": -1.0,
+   "mode": "turn",
+   "turn_eagerness": "normal",
+   "spelling_patience": "auto",
+   "speculative_turn": true,
+   "retranscribe_on_turn_timeout": false,
+   "turn_model": "turn_v3",
+   "interruption_ignore_terms": [],
+   "interruption_ignore_term_languages": [],
+   "merge_with_default_ignore_terms": false,
+   "transcribe_on_disabled_interruptions": false,
+   "soft_timeout_config": {
+    "timeout_seconds": -1.0,
+    "message": "Hhmmmm...yeah.",
+    "additional_soft_timeout_messages": [],
+    "use_llm_generated_message": false,
+    "randomize_fillers": false,
+    "max_soft_timeouts_per_generation": 1,
+    "llm_generated_message_prompt_override": null,
+    "disable_until_first_user_message": false
+   }
+  },
+  "tts": {
+   "model_id": "eleven_flash_v2_5",
+   "voice_id": "NEjemlRxgWmL5ZGJetsB",
+   "supported_voices": [],
+   "expressive_mode": false,
+   "suggested_audio_tags": [],
+   "agent_output_audio_format": "pcm_48000",
+   "optimize_streaming_latency": 3,
+   "stability": 0.5,
+   "speed": 1.0,
+   "similarity_boost": 1.0,
+   "text_normalisation_type": "elevenlabs",
+   "pronunciation_dictionary_locators": [],
+   "enable_phoneme_tags": true,
+   "audio_effects": {
+    "filter_preset_id": "phone",
+    "distance": 0.0,
+    "environment_id": null,
+    "background_noise_id": null,
+    "send_level": 1.0,
+    "pan": 0.0,
+    "seed": null
+   }
+  },
+  "conversation": {
+   "text_only": false,
+   "max_duration_seconds": 600,
+   "max_duration_seconds_after_last_agent_message": null,
+   "client_events": [
+    "audio",
+    "interruption",
+    "user_transcript",
+    "agent_response",
+    "agent_response_correction",
+    "agent_chat_response_part"
+   ],
+   "file_input": {
+    "enabled": true,
+    "max_files_in_memory": 10,
+    "max_files_per_conversation": 10
+   },
+   "monitoring_enabled": false,
+   "monitoring_events": [
+    "user_transcript",
+    "agent_response",
+    "agent_response_correction"
+   ],
+   "dtmf_input_settings": null,
+   "background_sound": {
+    "source_type": "preset",
+    "source_id": "office2",
+    "volume": 0.02,
+    "crossfade_loop": true
+   },
+   "compaction": {
+    "enabled": null,
+    "soft_trigger_fraction": null,
+    "tail_size": null,
+    "min_reclaimable_tokens": null
+   },
+   "source_attribution": true
+  },
+  "language_presets": {},
+  "vad": {
+   "background_voice_detection": false,
+   "use_local_cpu_vad": false,
+   "cpu_vad_periodic_reset_seconds": 0.0,
+   "voice_activity_audio_threshold": null,
+   "narrowband_vad": false
+  },
+  "realtime_model": null,
+  "agent": {
+   "first_message": "Bonjour ! Comment puis-je vous aider aujourd'hui ?",
+   "language": "fr",
+   "hinglish_mode": false,
+   "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+   },
+   "disable_first_message_interruptions": true,
+   "max_conversation_duration_message": "",
+   "text_behavior_overrides": null,
+   "subagents": [],
+   "prompt": {
+    "prompt": "Tu es Marie, du service dépannage de SOS Cumulus, une entreprise de réparation\net de remplacement de chauffe-eau en région lyonnaise. Tu fais partie de\nl'équipe : tu dis « nous », « nos techniciens », « je vous envoie ». Tu ne dis\njamais que tu es une intelligence artificielle, un assistant ou un robot, et tu\nne t'excuses pas d'exister. Si on te pose franchement la question, tu réponds\nsimplement que tu es l'assistante vocale de SOS Cumulus et tu enchaînes.\nQUI TU AS AU TÉLÉPHONE\nQuelqu'un qui n'a plus d'eau chaude, ou qui a de l'eau par terre. Ce n'est pas\nun incident technique pour lui, c'est une journée gâchée et une inquiétude sur\nce que ça va coûter. Tu es calme, chaleureuse, et tu vas droit au but : la\nmeilleure façon de rassurer quelqu'un est de lui montrer que tu sais quoi faire.\nTu parles court. Une question à la fois. Des phrases de conversation, pas de\nformulaire. Tu ne récites jamais une liste de choix à voix haute.\nTu ne dis jamais « je comprends votre frustration » ni aucune formule de\ncentre d'appel. Tu montres que tu comprends en agissant vite.\nCOMMENT TU PARLES\nAu téléphone, pas à l'écrit. Tes phrases s'enchaînent — « alors », « donc »,\n« du coup » — au lieu de se juxtaposer. Trois phrases de quatre mots à la\nsuite, c'est un serveur vocal ; une phrase qui respire, c'est quelqu'un.\nTu as le droit d'hésiter, de reprendre un mot de la personne, de glisser un\n« d'accord » au milieu d'une phrase plutôt qu'en tête. Tu n'as pas à être\nefficace à chaque seconde : quelqu'un qui décrit sa panne a besoin de sentir\nqu'on l'écoute, pas qu'on le chronomètre.\nEt surtout : **aucun exemple de ce document n'est une formule à répéter.** Ce\nsont des indications de registre, écrites pour que tu comprennes l'intention.\nLes seules phrases qui se disent mot pour mot sont les « speech » que\nrenvoient les outils, et ta phrase d'accueil. Tout le reste, tu le formules\ntoi-même, dans tes mots, en situation. Si tu te surprends à réciter une phrase\nlue ici, c'est que tu récites au lieu de parler.\nCE QUE TU SAIS ET CE QUE TU NE SAIS PAS\nTu connais le métier : un groupe de sécurité qui goutte pendant la chauffe est\nnormal, une cuve percée impose un remplacement, un disjoncteur qui saute\nplusieurs fois de suite est un danger électrique. Tu peux expliquer ça\nsimplement si on te le demande.\nEn revanche tu ne diagnostiques jamais toi-même par téléphone et tu n'annonces\njamais un prix, un délai ou une référence d'appareil qui ne vient pas d'un\noutil. Si tu n'as pas l'information, tu dis que tu la fais confirmer par un\ntechnicien. C'est une règle absolue : une phrase inventée au téléphone engage\nl'entreprise.\nTA PREMIÈRE PHRASE NE T'APPARTIENT PAS\nElle est fixée par la configuration et prononcée avant que tu prennes la main.\nTu ne la réécris pas, tu ne l'allonges pas, tu n'y ajoutes rien. En particulier\ntu n'y glisses jamais la question de sécurité : elle vient beaucoup plus loin,\nune fois que tu as le nom, le numéro et le dossier ouvert. La poser d'entrée\ntransforme un accueil en interrogatoire, et saute trois étapes.\nSi pour une raison quelconque tu dois ouvrir la conversation toi-même, tu dis\nexactement ceci, et rien d'autre :\n« SOS Cumulus bonjour ! Marie à votre écoute, comment puis-je vous aider ? »\nPuis tu te tais et tu écoutes.\nLES PHRASES TOUTES FAITES\nPlusieurs outils te renvoient un champ « speech ». Quand il est présent, tu le\nlis mot pour mot, sans le reformuler, sans l'abréger et sans y ajouter de\nchiffre. Tu peux enchaîner naturellement avant et après, mais la phrase\nelle-même ne se retouche pas. Elle contient les seules valeurs vérifiées de la\nconversation.\nLE DÉROULÉ\n1. Ta phrase d'accueil est déjà dite. Elle finit par une question ouverte :\n   tu laisses la personne répondre et tu l'écoutes jusqu'au bout. Tu ne\n   l'interromps pas pour demander son nom.\n2. Tu rebondis sur ce qu'elle vient de dire et tu demandes le nom dans le même\n   mouvement, en une seule phrase liée. Reprendre son problème lui montre que\n   tu as écouté ; dire que tu lui ouvres un dossier donne une raison à la\n   question qui suit, au lieu de la faire tomber toute seule.\n   Ce qu'il ne faut pas : accuser réception, puis annoncer que tu vas aider,\n   puis demander le nom. Trois petites phrases posées l'une derrière l'autre,\n   c'est exactement ce qui fait sonner faux.\n3. Tu demandes le numéro de téléphone. Tu le répètes chiffre par chiffre pour\n   le faire confirmer — c'est sur ce numéro que partira le lien, une erreur\n   ici fait tout échouer en silence.\n4. Tu appelles open_case. Dans reportedIssue, tu mets ce que la personne a dit\n   de son problème, avec ses mots à elle, sans le traduire en vocabulaire\n   technique : « plus d'eau chaude depuis ce matin, ça fait un bruit bizarre ».\n   C'est ce que lira le technicien.\n   Tu lis le « speech » renvoyé. Aucun SMS ne part à cette étape : on ne sait\n   pas encore si des photos ont le moindre sens.\n5. Tu poses la question de sécurité : est-ce qu'il y a de l'eau qui coule, ou\n   est-ce que le disjoncteur a sauté. Les deux points en une fois, sans\n   dramatiser, et avec tes mots.\n   Si la personne l'a déjà dit spontanément au début, tu ne reposes pas la\n   question : tu fais confirmer ce que tu as entendu. Redemander ce qu'on vient\n   de vous dire est le signe le plus sûr qu'on n'écoutait pas.\n6. Tu appelles triage avec ce que tu as entendu. C'est cet appel qui décide du\n   SMS, et lui seul.\n   — transfer = true : tu lis le « speech », puis tu déclenches le transfert\n     vers un technicien. Tu ne poses aucune autre question, tu ne demandes pas\n     de photo, tu ne parles pas de devis, et aucun SMS n'est parti. Quelqu'un\n     qui a de l'eau par terre n'a pas à photographier une étiquette.\n   — transfer = false et smsSent = true : le lien vient de partir. Tu lis le\n     « speech » et tu continues.\n   — transfer = false et smsSent = false : le SMS n'a pas pu partir. Tu lis le\n     « speech » et tu transfères vers un technicien — sans lien, le client ne\n     peut rien faire, et le laisser attendre serait pire que de le passer à\n     quelqu'un.\n7. Tu expliques les photos : le SMS qui vient d'arriver contient un lien, il\n   suffit de l'ouvrir et de se laisser guider, ça prend deux à trois minutes.\n   Tu proposes le choix, clairement : rester en ligne pendant qu'il les prend,\n   ou raccrocher et recevoir le devis automatiquement. Les deux conviennent, tu\n   n'orientes pas. S'il raccroche, tu le salues normalement — le dossier\n   continue sans toi.\n8. S'il reste en ligne : tu appelles check_photos de temps en temps, pas en\n   continu. Toutes les vingt ou trente secondes, ou quand il dit qu'il a\n   terminé une photo. Entre deux appels tu restes disponible et silencieuse\n   plutôt que de meubler.\n   Tu lis le « speech » renvoyé. Il dit ce qui est reçu et ce qui a été lu sur\n   l'étiquette. Tu ne commentes pas au-delà.\n9. Quand complete = true, tu appelles get_quote.\n   — ready = false : tu lis le « speech » et tu patientes. Tu rappelles\n     l'outil au bout d'une trentaine de secondes.\n   — ready = true : tu lis le « speech » tel quel. Il contient soit un montant\n     vérifié, soit la raison pour laquelle un technicien doit rappeler. Dans ce\n     second cas tu ne cherches pas à donner un ordre de grandeur, même si on\n     insiste : tu dis que tu préfères un chiffre juste à un chiffre approximatif.\n10. Si un montant a été annoncé et que le client dit qu'il accepte : tu lui\n    expliques qu'il peut répondre OK au SMS, et tu appelles accept_quote. Puis\n    tu transfères vers un technicien pour le rendez-vous.\nCE QUI PEUT ARRIVER ET QUE TU GÈRES SANS PANIQUER\n— Il n'a pas reçu le SMS alors que smsSent valait vrai : tu lui redonnes la\n  référence du dossier et tu transfères vers un technicien plutôt que de le\n  laisser attendre.\n— Il demande à parler à quelqu'un : tu transfères, sans négocier.\n— Il est très inquiet, ou il y a beaucoup d'eau : tu transfères tout de suite,\n  même si le triage disait le contraire. Le doute profite au client.\n— Il te demande combien ça coûte avant les photos : tu réponds honnêtement que\n  ça dépend de ce que les photos montreront, et que c'est justement pour ça\n  qu'on les demande.\n— Il parle d'autre chose : tu réponds brièvement et tu ramènes au sujet.\nTU NE FAIS JAMAIS\n— annoncer un prix, une marque, un modèle ou un délai qui ne vient pas d'un outil\n— promettre une intervention à une date précise\n— demander un numéro de carte, un RIB ou un mot de passe\n— insister quand quelqu'un veut raccrocher",
+    "llm": "qwen35-397b-a17b",
+    "reasoning_effort": null,
+    "service_tier": "standard",
+    "opener": null,
+    "thinking_budget": null,
+    "enable_reasoning_summary": false,
+    "temperature": 0.0,
+    "max_tokens": -1,
+    "tool_ids": [],
+    "built_in_tools": {
+     "transfer_to_agent": null,
+     "update_state": null,
+     "memory_entry_search": null,
+     "run_subagent": null,
+     "request_help": null,
+     "end_call": null,
+     "language_detection": null,
+     "transfer_to_number": null,
+     "skip_turn": null,
+     "play_keypad_touch_tone": null,
+     "voicemail_detection": null,
+     "transfer_to_genesys": null,
+     "transfer_to_genesys_chat": null,
+     "transfer_to_genesys_bot": null
+    },
+    "enable_parallel_tool_calls": false,
+    "mcp_server_ids": [],
+    "native_mcp_server_ids": [],
+    "knowledge_base": [],
+    "custom_llm": null,
+    "bedrock_llm": null,
+    "speech_engine": null,
+    "ignore_default_personality": true,
+    "rag": {
+     "enabled": false,
+     "embedding_model": "e5_mistral_7b_instruct",
+     "optional_rag_enabled": false,
+     "max_vector_distance": 0.6,
+     "max_documents_length": 50000,
+     "max_retrieved_rag_chunks_count": 20,
+     "num_candidates": null,
+     "query_rewrite_prompt_override": null,
+     "knowledge_base_tool_info": null,
+     "include_source_urls": false
+    },
+    "timezone": "Europe/Madrid",
+    "backup_llm_config": {
+     "preference": "default"
+    },
+    "cascade_timeout_seconds": 4.0,
+    "tools": []
+   }
+  }
+ },
+ "metadata": {
+  "created_at_unix_secs": 1789485432,
+  "updated_at_unix_secs": 1790154546
+ },
+ "platform_settings": {
+  "evaluation": {
+   "criteria": []
+  },
+  "widget": {
+   "variant": "full",
+   "placement": "bottom-right",
+   "expandable": "never",
+   "avatar": {
+    "type": "orb",
+    "color_1": "#2792dc",
+    "color_2": "#9ce6e6"
+   },
+   "feedback_mode": "during",
+   "end_feedback": {
+    "type": "rating"
+   },
+   "bg_color": "#ffffff",
+   "text_color": "#000000",
+   "btn_color": "#000000",
+   "btn_text_color": "#ffffff",
+   "border_color": "#e1e1e1",
+   "focus_color": "#000000",
+   "border_radius": null,
+   "btn_radius": null,
+   "action_text": null,
+   "start_call_text": null,
+   "end_call_text": null,
+   "expand_text": null,
+   "listening_text": null,
+   "speaking_text": null,
+   "shareable_page_text": null,
+   "shareable_page_show_terms": true,
+   "terms_text": "#### Terms and conditions\n\nBy clicking \"Agree,\" and each time I interact with this AI agent, I consent to the recording, storage, and sharing of my communications with third-party service providers, and as described in the Privacy Policy.\nIf you do not wish to have your conversations recorded, please refrain from using this service.",
+   "terms_html": "<h4>Terms and conditions</h4>\n<p>By clicking &quot;Agree,&quot; and each time I interact with this AI agent, I consent to the recording, storage, and sharing of my communications with third-party service providers, and as described in the Privacy Policy.\nIf you do not wish to have your conversations recorded, please refrain from using this service.</p>\n",
+   "terms_key": null,
+   "show_avatar_when_collapsed": false,
+   "disable_banner": false,
+   "override_link": null,
+   "markdown_link_allowed_hosts": [],
+   "markdown_link_include_www": true,
+   "markdown_link_allow_http": true,
+   "mic_muting_enabled": true,
+   "transcript_enabled": true,
+   "text_input_enabled": true,
+   "conversation_mode_toggle_enabled": false,
+   "default_expanded": false,
+   "always_expanded": false,
+   "dismissible": false,
+   "show_agent_status": false,
+   "show_conversation_id": true,
+   "strip_audio_tags": true,
+   "syntax_highlight_theme": null,
+   "text_contents": {
+    "main_label": null,
+    "start_call": null,
+    "start_chat": null,
+    "new_call": null,
+    "end_call": null,
+    "mute_microphone": null,
+    "change_language": null,
+    "collapse": null,
+    "expand": null,
+    "copied": null,
+    "accept_terms": null,
+    "dismiss_terms": null,
+    "listening_status": null,
+    "speaking_status": null,
+    "connecting_status": null,
+    "chatting_status": null,
+    "input_label": null,
+    "input_placeholder": null,
+    "input_placeholder_text_only": null,
+    "input_placeholder_new_conversation": null,
+    "user_ended_conversation": null,
+    "agent_ended_conversation": null,
+    "conversation_id": null,
+    "error_occurred": null,
+    "copy_id": null,
+    "initiate_feedback": null,
+    "request_follow_up_feedback": null,
+    "thanks_for_feedback": null,
+    "thanks_for_feedback_details": null,
+    "follow_up_feedback_placeholder": null,
+    "submit": null,
+    "go_back": null,
+    "send_message": null,
+    "text_mode": null,
+    "voice_mode": null,
+    "switched_to_text_mode": null,
+    "switched_to_voice_mode": null,
+    "copy": null,
+    "download": null,
+    "wrap": null,
+    "agent_working": null,
+    "agent_done": null,
+    "agent_error": null,
+    "attach_file": null,
+    "remove_file": null,
+    "file_upload_error": null,
+    "file_type_unsupported": null,
+    "file_too_large": null,
+    "file_limit_reached": null,
+    "typing_indicator": null
+   },
+   "styles": {
+    "base": null,
+    "base_hover": null,
+    "base_active": null,
+    "base_border": null,
+    "base_subtle": null,
+    "base_primary": null,
+    "base_error": null,
+    "accent": null,
+    "accent_hover": null,
+    "accent_active": null,
+    "accent_border": null,
+    "accent_subtle": null,
+    "accent_primary": null,
+    "overlay_padding": null,
+    "button_radius": null,
+    "input_radius": null,
+    "bubble_radius": null,
+    "sheet_radius": null,
+    "compact_sheet_radius": null,
+    "dropdown_sheet_radius": null
+   },
+   "show_resize_button": true,
+   "language_selector": false,
+   "supports_text_only": true,
+   "custom_avatar_path": null,
+   "language_presets": {},
+   "first_message_quick_replies": []
+  },
+  "data_collection": {},
+  "data_collection_scopes": {},
+  "analysis_items": {
+   "evaluation_criteria": [],
+   "data_collection": []
+  },
+  "overrides": {
+   "conversation_config_override": {
+    "asr": {
+     "keywords": false
+    },
+    "turn": {
+     "soft_timeout_config": {
+      "message": false,
+      "additional_soft_timeout_messages": false
+     }
+    },
+    "tts": {
+     "model_id": false,
+     "voice_id": false,
+     "supported_voices": false,
+     "stability": false,
+     "speed": false,
+     "similarity_boost": false,
+     "pronunciation_dictionary_locators": false
+    },
+    "conversation": {
+     "text_only": true,
+     "max_duration_seconds": false
+    },
+    "agent": {
+     "first_message": false,
+     "language": false,
+     "max_conversation_duration_message": false,
+     "prompt": {
+      "prompt": false,
+      "llm": false,
+      "tool_ids": false,
+      "native_mcp_server_ids": false,
+      "knowledge_base": false
+     }
+    }
+   },
+   "custom_llm_extra_body": false,
+   "enable_conversation_initiation_client_data_from_webhook": false,
+   "enable_starting_workflow_node_id_from_client": false,
+   "enable_procedure_ids_from_client": false
+  },
+  "workspace_overrides": {
+   "conversation_initiation_client_data_webhook": null,
+   "webhooks": {
+    "post_call_webhook_id": null,
+    "events": [
+     "transcript"
+    ],
+    "transcript_format": "json",
+    "send_audio": false
+   },
+   "cloud_storage_export": {
+    "destination_id": null,
+    "events": [
+     "transcript"
+    ],
+    "transcript_format": "json"
+   }
+  },
+  "testing": {
+   "attached_tests": [
+    {
+     "test_id": "test_2101m2jxr1qyebw9nb9q4s2bb311",
+     "workflow_node_id": null
+    }
+   ],
+   "referenced_tests_ids": [
+    "test_2101m2jxr1qyebw9nb9q4s2bb311"
+   ]
+  },
+  "archived": false,
+  "guardrails": {
+   "version": "1",
+   "focus": {
+    "is_enabled": false
+   },
+   "prompt_injection": {
+    "is_enabled": false
+   },
+   "synthetic_voice": {
+    "is_enabled": false,
+    "trigger_action": {
+     "type": "end_call"
+    }
+   },
+   "content": {
+    "execution_mode": "streaming",
+    "config": {
+     "sexual": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "violence": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "harassment": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "self_harm": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "profanity": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "religion_or_politics": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "medical_and_legal_information": {
+      "is_enabled": false,
+      "threshold": "medium"
+     }
+    },
+    "trigger_action": {
+     "type": "end_call"
+    }
+   },
+   "moderation": null,
+   "custom": {
+    "config": {
+     "configs": []
+    }
+   }
+  },
+  "summary_language": null,
+  "auto_translate_transcript_to_app_language": null,
+  "auth": {
+   "enable_auth": false,
+   "allowlist": [],
+   "require_origin_header": false,
+   "shareable_token": null
+  },
+  "call_limits": {
+   "agent_concurrency_limit": -1,
+   "daily_limit": 100000,
+   "bursting_enabled": true
+  },
+  "queueing_config": {
+   "enabled": false,
+   "wait_timeout_seconds": 180,
+   "hold_audio": null
+  },
+  "ban": null,
+  "smb_metadata": null,
+  "privacy": {
+   "record_voice": true,
+   "retention_days": -1,
+   "delete_transcript_and_pii": false,
+   "delete_audio": false,
+   "apply_to_existing_conversations": false,
+   "zero_retention_mode": false,
+   "nested_history_redaction": false,
+   "conversation_history_redaction": {
+    "enabled": false,
+    "entities": []
+   },
+   "user_memory": {
+    "enabled": false,
+    "scale": "balanced"
+   }
+  },
+  "trust_context": "unknown",
+  "analysis_llm": "gemini-2.5-flash",
+  "analysis_bedrock_llm": null,
+  "analysis_llm_billed": false,
+  "topic_discovery": {
+   "enabled": true
+  },
+  "sentiment_analysis": {
+   "enabled": true
+  },
+  "simulation_library": {
+   "enabled": false,
+   "test_ids": []
+  },
+  "alerting": null,
+  "overview_dashboard_template_id": null,
+  "safety": {
+   "is_blocked_ivc": false,
+   "is_blocked_non_ivc": false,
+   "ignore_safety_evaluation": false
+  }
+ },
+ "phone_numbers": [],
+ "whatsapp_accounts": [],
+ "workflow": {
+  "edges": {},
+  "nodes": {
+   "start_node": {
+    "type": "start",
+    "position": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "edge_order": [],
+    "parent_subgraph_id": null
+   }
+  },
+  "subgraphs": {},
+  "prevent_subagent_loops": false
+ },
+ "access_info": {
+  "is_creator": true,
+  "creator_name": "Maxime PERON",
+  "creator_email": "maxime.peron@gmail.com",
+  "role": "admin",
+  "anonymous_access_level_override": null,
+  "access_source": "creator"
+ },
+ "access_permissions": [
+  "agent_edit_config",
+  "agent_run_tests",
+  "agent_view_analytics",
+  "agent_view_config",
+  "agent_view_conversation_history",
+  "resource_delete",
+  "resource_manage_access"
+ ],
+ "tags": [],
+ "version_id": "agtvrsn_3601m36rd7phffmacdjkq8s1paen",
+ "branch_id": "agtbrch_4701m2jt9fr3f4htxyaezpvv0eg5",
+ "main_branch_id": "agtbrch_4701m2jt9fr3f4htxyaezpvv0eg5",
+ "procedures": {},
+ "trust_context": "unknown",
+ "default_hold_audio_url": "https://eleven-public-cdn-common.elevenlabs.io/convai/ambient-audio-assets/elevator1.mp3"
+}

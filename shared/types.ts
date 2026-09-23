@@ -14,15 +14,17 @@ export const PHOTO_SLOTS: Record<PhotoSlot, { key: string; label: string }> = {
 /**
  * Slots whose photo is sent to the model.
  *
- * Only the nameplate is read: it is the one shot carrying information a human
- * cannot reconstruct later — a reference, a barcode, a capacity. The other two
- * are stored, archived and looked at by the technician, who reads clearance and
- * a leak better from the photo than we can describe them back to him.
+ * The nameplate carries what a human cannot reconstruct later — a reference, a
+ * barcode, a capacity. The overview carries what the nameplate never prints:
+ * the appliance is a cylinder on a wall, and its posture, its proportion and
+ * the side its water arrives from are exactly the columns the replacement guide
+ * sorts by. A label says "150 litres"; it does not say whether the tank is a
+ * Ø 513 standard or a Ø 570 compact, and those two take different brackets.
  *
- * Re-enabling one is this list plus nothing else: the prompts and schemas for
- * the other slots are still in place.
+ * The leak shot stays unread: a technician reads a wet patch better from the
+ * photo than we can describe it back to him, and nothing in it picks a part.
  */
-export const ANALYZED_PHOTO_SLOTS: readonly PhotoSlot[] = [1];
+export const ANALYZED_PHOTO_SLOTS: readonly PhotoSlot[] = [1, 2];
 
 export const isAnalyzedSlot = (slot: PhotoSlot): boolean =>
   ANALYZED_PHOTO_SLOTS.includes(slot);
@@ -37,12 +39,25 @@ export const isAnalyzedSlot = (slot: PhotoSlot): boolean =>
  * matter and stays — a client may well own a gas unit and call anyway, and the
  * technician is better off knowing before driving out.
  */
-export type SafetyFlag = 'breaker_tripped' | 'water_near_electrics' | 'none';
+export type SafetyFlag =
+  | 'breaker_tripped'
+  | 'water_near_electrics'
+  /**
+   * Phone triage only. On the web the client is asked *where* water is showing,
+   * and a leak is an ordinary question — most of them wait. On the phone the
+   * agent asks one yes/no question and cannot see anything, so any declared
+   * leak hands over to a human. Recorded as what it is rather than folded into
+   * `water_near_electrics`: a technician reads these flags, and "water near
+   * sockets" is not something to write when nobody said it.
+   */
+  | 'water_leak'
+  | 'none';
 
 /** Any one of these flags stops the journey and triggers a call back. */
 export const BLOCKING_SAFETY_FLAGS: readonly SafetyFlag[] = [
   'breaker_tripped',
   'water_near_electrics',
+  'water_leak',
 ];
 
 /* ------------------------------------------------------------------ */
@@ -212,6 +227,32 @@ export interface Installation {
   accessClearance: 'sufficient' | 'tight' | 'insufficient' | 'unknown';
   safetyGroupVisible: boolean | null;
   corrosionVisible: boolean | null;
+
+  /*
+   * Everything below exists to pick a replacement, and every field of it is
+   * absent from the nameplate. A label gives brand, reference and volume; the
+   * guide sorts by posture, diameter and where the water connects.
+   */
+
+  /**
+   * Brand read off the casing — a logo, a moulded word, a front sticker.
+   *
+   * Worth asking for on its own: on the one real case we have, the label gave
+   * no brand at all and the shell carried it.
+   */
+  brand: string | null;
+  /**
+   * Squat or slim, judged on the proportion of the cylinder, since a photo
+   * gives no absolute measurement. `compact` is the short wide shell (Ø 555-570),
+   * `standard` the tall narrow one (Ø 505-530), `flat` the rectangular casing of
+   * a built-in. The two round families take different brackets at equal volume,
+   * which is the whole reason this field exists.
+   */
+  shellProfile: 'standard' | 'compact' | 'flat' | 'unknown';
+  /** Where the pipes leave the tank — the guide splits its horizontal rows on it. */
+  waterConnection: 'below' | 'side' | 'front' | 'unknown';
+  /** Whether the wall brackets are visible enough for a technician to measure. */
+  bracketsVisible: boolean | null;
 }
 
 export interface Leak {
@@ -283,6 +324,12 @@ export interface Diagnosis {
   summary: string;
   likelyCause: string;
   recommendedAction: string;
+  /**
+   * What the job is, not what it costs. The quote is priced from this and the
+   * capacity read off the nameplate — never by the model, which has no price
+   * list and must not guess one.
+   */
+  interventionKind: 'repair' | 'replacement' | 'undetermined';
   urgency: 'immediate' | 'within_24h' | 'within_72h' | 'schedulable';
   partsLikely: string[];
   estimatedDurationMin: number | null;

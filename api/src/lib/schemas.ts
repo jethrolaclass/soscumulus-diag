@@ -127,7 +127,16 @@ const NAMEPLATE: JsonSchema = {
 const INSTALLATION: JsonSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['mounting', 'accessClearance', 'safetyGroupVisible', 'corrosionVisible'],
+  required: [
+    'mounting',
+    'accessClearance',
+    'safetyGroupVisible',
+    'corrosionVisible',
+    'brand',
+    'shellProfile',
+    'waterConnection',
+    'bracketsVisible',
+  ],
   properties: {
     mounting: {
       type: 'string',
@@ -147,6 +156,21 @@ const INSTALLATION: JsonSchema = {
     },
     safetyGroupVisible: { type: nullable('boolean') },
     corrosionVisible: { type: nullable('boolean') },
+    brand: {
+      type: nullable('string'),
+      description: 'Brand on the casing — logo, moulded word or sticker. Never inferred.',
+    },
+    shellProfile: {
+      type: 'string',
+      enum: ['standard', 'compact', 'flat', 'unknown'],
+      description:
+        'Proportion of the shell: compact is short and wide, standard tall and narrow.',
+    },
+    waterConnection: {
+      type: 'string',
+      enum: ['below', 'side', 'front', 'unknown'],
+    },
+    bracketsVisible: { type: nullable('boolean') },
   },
 };
 
@@ -241,6 +265,7 @@ export const DIAGNOSIS_SCHEMA: JsonSchema = {
     'summary',
     'likelyCause',
     'recommendedAction',
+    'interventionKind',
     'urgency',
     'partsLikely',
     'estimatedDurationMin',
@@ -256,6 +281,12 @@ export const DIAGNOSIS_SCHEMA: JsonSchema = {
     },
     likelyCause: { type: 'string' },
     recommendedAction: { type: 'string' },
+    interventionKind: {
+      type: 'string',
+      enum: ['repair', 'replacement', 'undetermined'],
+      description:
+        'undetermined whenever the photos do not settle it. Drives the quote.',
+    },
     urgency: {
       type: 'string',
       enum: ['immediate', 'within_24h', 'within_72h', 'schedulable'],

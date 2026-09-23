@@ -90,6 +90,13 @@ scripts/          pont Google Apps Script
 listés. Elle est **vide depuis le 4 septembre 2026** : tout client reçoit son
 lien automatiquement.
 
+`SMS_ALLOWLIST_VOICE` est la même règle pour les SMS déclenchés par l'agent
+vocal, et elle seule. Elle est **remplie** des numéros de l'équipe tant que
+l'agent se teste à l'oreille : un testeur qui donnerait un numéro au hasard
+mettrait sinon un vrai lien sur le téléphone d'un inconnu. Un numéro bloqué
+par cette liste n'est pas une panne — la route de triage renvoie
+`smsBlocked: true` et l'agent continue sans transférer.
+
 La remplir de numéros séparés par des virgules referme l'envoi sur eux seuls.
 Les autres dossiers restent créés et leur lien valide, mais rien ne part, et
 l'e-mail de lead affiche « SMS non envoyé » pour que l'équipe transmette le

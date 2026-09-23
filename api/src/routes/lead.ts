@@ -37,7 +37,7 @@ export async function handleLead(
 
   let smsSent = false;
   try {
-    smsSent = await sendDiagSms(env, token, created.phone, url);
+    smsSent = (await sendDiagSms(env, token, created.phone, url, 'web')) === 'sent';
   } catch (err) {
     // The case exists and the link is valid: a send failure must not cost the
     // lead. The team can resend the link by hand from the event log.

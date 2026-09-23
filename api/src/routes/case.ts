@@ -95,12 +95,28 @@ export async function handleSubmit(
   // hold a client standing in a cellar on a spinner. If they close the tab in
   // the meantime the file must already be ours — a submission that only counts
   // once the model has answered is a submission we lose.
-  await setStatus(env, token, 'submitted');
-  await logEvent(env, token, 'case_submitted', `panel=${found.panel.captured}`);
-
-  ctx.waitUntil(diagnoseInBackground(env, token, found));
+  await closeAndDiagnose(env, ctx, token, found);
 
   return json({ status: 'submitted', diagnosis: null });
+}
+
+/**
+ * Closes the case and starts the synthesis, once.
+ *
+ * Shared with the quote route: a client who goes through the phone agent never
+ * presses "Envoyer mon dossier", and their file must still close and be
+ * diagnosed the same way.
+ */
+export async function closeAndDiagnose(
+  env: Env,
+  ctx: ExecutionContext,
+  token: string,
+  found: DiagnosisCase,
+): Promise<void> {
+  if (found.status === 'submitted') return;
+  await setStatus(env, token, 'submitted');
+  await logEvent(env, token, 'case_submitted', `panel=${found.panel.captured}`);
+  ctx.waitUntil(diagnoseInBackground(env, token, found));
 }
 
 /** Retry window: long enough that a synthesis still in flight is left alone. */

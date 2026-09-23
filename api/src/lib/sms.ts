@@ -72,27 +72,79 @@ export function smsAllowed(
   return entries.some((n) => normalizePhone(n) === recipient);
 }
 
+/**
+ * Quote text. No accents, like the diagnosis one: an accented character flips
+ * the whole message to UCS-2 and halves the segment to 70 characters.
+ */
+export function quoteMessage(ref: string, total: number): string {
+  return (
+    `SOS Cumulus, dossier ${ref} : votre devis est de ${total} EUR TTC, ` +
+    `pose et deplacement compris. Repondez OK a ce message pour l'accepter, ` +
+    `un technicien vous rappelle pour le rendez-vous.`
+  );
+}
+
+/**
+ * Who asked for the text. Each channel has its own allowlist: the website has
+ * been open to every prospect since go-live, while the phone agent is still
+ * tested by ear and must only ever text the team's own numbers.
+ */
+export type SmsChannel = 'web' | 'voice';
+
+/**
+ * `blocked` is not a failure: the allowlist did its job, and the caller must
+ * carry on as if nothing was owed — not hand the call to a technician.
+ */
+export type SmsOutcome = 'sent' | 'blocked' | 'invalid';
+
+function allowlistFor(env: Env, channel: SmsChannel): string | undefined {
+  return channel === 'voice' ? env.SMS_ALLOWLIST_VOICE : env.SMS_ALLOWLIST;
+}
+
+/** Sends an already-built text. Throws on a Brevo failure. */
+export async function sendSms(
+  env: Env,
+  token: string,
+  phone: string,
+  content: string,
+  kind: string,
+  channel: SmsChannel,
+): Promise<SmsOutcome> {
+  const recipient = normalizePhone(phone);
+  if (!recipient) {
+    await logEvent(env, token, 'sms_invalid_number', phone);
+    return 'invalid';
+  }
+  if (!smsAllowed(recipient, allowlistFor(env, channel))) {
+    await logEvent(env, token, 'sms_blocked_by_allowlist', `${channel} ${recipient}`);
+    return 'blocked';
+  }
+  await post(env, token, recipient, content, kind);
+  return 'sent';
+}
+
 export async function sendDiagSms(
   env: Env,
   token: string,
   phone: string,
   url: string,
-): Promise<boolean> {
+  channel: SmsChannel,
+): Promise<SmsOutcome> {
   const recipient = normalizePhone(phone);
   if (!recipient) {
     await logEvent(env, token, 'sms_invalid_number', phone);
-    return false;
+    return 'invalid';
   }
 
-  if (!smsAllowed(recipient, env.SMS_ALLOWLIST)) {
+  if (!smsAllowed(recipient, allowlistFor(env, channel))) {
     // The case stays created and its link valid: the lead email shows it with
     // a "not sent" notice, and the team can pass it on by hand.
-    await logEvent(env, token, 'sms_blocked_by_allowlist', recipient);
+    await logEvent(env, token, 'sms_blocked_by_allowlist', `${channel} ${recipient}`);
     console.warn(
-      `SMS not sent to ${recipient}: test allowlist active (SMS_ALLOWLIST). ` +
-        'Clear that variable to go live.',
+      `SMS not sent to ${recipient}: allowlist active for channel ${channel}. ` +
+        'Clear that variable to open it.',
     );
-    return false;
+    return 'blocked';
   }
 
   const content = diagMessage(url);
@@ -108,6 +160,17 @@ export async function sendDiagSms(
     );
   }
 
+  await post(env, token, recipient, content, 'diag');
+  return 'sent';
+}
+
+async function post(
+  env: Env,
+  token: string,
+  recipient: string,
+  content: string,
+  kind: string,
+): Promise<boolean> {
   const res = await fetch(BREVO_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -128,10 +191,10 @@ export async function sendDiagSms(
 
   if (!res.ok) {
     const detail = await res.text();
-    await logEvent(env, token, 'sms_failed', `${res.status} ${detail.slice(0, 200)}`);
+    await logEvent(env, token, 'sms_failed', `${kind} ${res.status} ${detail.slice(0, 180)}`);
     throw new SmsError(`Brevo ${res.status}`, res.status);
   }
 
-  await logEvent(env, token, 'sms_sent', recipient);
+  await logEvent(env, token, 'sms_sent', `${kind} ${recipient}`);
   return true;
 }

@@ -144,7 +144,17 @@ Si l'étiquette est présente mais qu'aucun caractère n'est lisible, nameplate.
 
 Évalue le dégagement disponible autour de l'appareil : un technicien doit pouvoir déposer le capot, accéder au groupe de sécurité et, si besoin, sortir la cuve. « insufficient » signifie qu'une dépose sera impossible sans démonter autre chose — c'est une information qui change le chiffrage et la durée de l'intervention, signale-la sans hésiter.
 
-Le groupe de sécurité est la petite pièce en laiton sur l'arrivée d'eau froide, généralement munie d'une molette et d'un tuyau d'évacuation.`,
+Le groupe de sécurité est la petite pièce en laiton sur l'arrivée d'eau froide, généralement munie d'une molette et d'un tuyau d'évacuation.
+
+Cette photo sert aussi à choisir l'appareil de remplacement, et elle est seule à pouvoir le faire : l'étiquette imprime une marque, une référence et un volume, jamais une dimension. Quatre champs s'y rapportent.
+
+« brand » : la marque portée par la carrosserie — logo, mot moulé dans le plastique, autocollant sur le capot ou sur le bandeau. Recopie ce que tu lis, et rien d'autre. Une forme de cuve ne désigne aucune marque : si aucun nom n'est écrit, le champ vaut null. Ce champ compte, car l'étiquette signalétique porte souvent un logo graphique plutôt qu'un nom imprimé, et la marque n'en ressort alors pas.
+
+« shellProfile » : la silhouette de la cuve, jugée sur ses proportions et jamais sur sa taille apparente, puisqu'une photo ne donne aucune mesure absolue. Compare la hauteur du cylindre à son diamètre. À volume égal il existe deux familles : la « standard », haute et étroite, et la « compact », courte et large. Repères utiles pour un modèle vertical : en 100 litres la standard est environ une fois et demie plus haute que large, la compact à peine plus haute que large ; en 150 litres, environ deux fois et quart contre moins de deux fois ; en 200 litres, près de trois fois contre un peu plus de deux fois. « flat » désigne une carrosserie rectangulaire, plate, d'un modèle encastrable. Si l'appareil n'est pas entièrement dans le cadre, ou si l'angle est trop oblique pour juger d'une proportion, le champ vaut « unknown » — c'est une réponse acceptable et utile, au contraire d'une estimation forcée.
+
+« waterConnection » : le côté par lequel les tuyaux d'eau quittent la cuve. « below » quand ils descendent sous le fond, « side » quand ils sortent par le flanc ou par la face latérale d'un modèle horizontal, « front » pour la face avant d'un encastrable. C'est ce qui sépare deux lignes voisines du catalogue de remplacement.
+
+« bracketsVisible » : true si les pattes de fixation murales, ou les étriers qui tiennent la cuve, sont visibles et dégagées au point qu'un technicien puisse en mesurer l'écartement. C'est la mesure qui tranche entre deux modèles compatibles, et savoir si elle est accessible évite un déplacement pour rien.`,
 
   3: `Photo demandée : la zone où le client voit de l'eau.
 
@@ -171,7 +181,9 @@ Ne surestime jamais ta certitude. Trois photos et six questions ne remplacent pa
 
 Un point de vocabulaire, parce qu'il a déjà été mal lu : « hasPanel » désigne le bandeau de commande du chauffe-eau lui-même — écran ou voyants sur l'appareil —, jamais le tableau électrique du logement.
 
-Seule l'étiquette signalétique passe par une analyse d'image. Les photos de l'appareil entier et de la zone de fuite sont bien prises, stockées et jointes au dossier — c'est le technicien qui les regarde, pas toi. Leur absence dans "analyses" ne signifie donc pas que le client ne les a pas fournies, et ne doit peser ni sur "confidence" ni sur "needsOnSite".
+L'étiquette signalétique et la vue d'ensemble passent par une analyse d'image ; la photo de la zone de fuite, non. Elle est bien prise, stockée et jointe au dossier — c'est le technicien qui la regarde, pas toi. Son absence dans "analyses" ne signifie donc pas que le client ne l'a pas fournie, et ne doit peser ni sur "confidence" ni sur "needsOnSite".
+
+Le champ "interventionKind" commande un devis automatique, lu au téléphone puis envoyé par SMS : c'est le seul champ dont la valeur engage une somme. Ne réponds "replacement" que si le remplacement est certain — cuve percée, corrosion traversante, appareil manifestement hors d'âge et fuyant par le corps. Ne réponds "repair" que si la pièce en cause est identifiée et remplaçable seule. Dans tous les autres cas, "undetermined" : le devis passe alors par un humain, ce qui est exactement ce qu'il faut quand le doute existe. Un "replacement" annoncé à tort fait chiffrer un chauffe-eau neuf à quelqu'un qui avait besoin d'un joint.
 
 Le champ "needsOnSite" vaut true dès qu'un élément déterminant reste invisible sur les photos.
 
