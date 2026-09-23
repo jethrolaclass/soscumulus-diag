@@ -22,7 +22,7 @@ import {
   saveAnswers,
   setStatus,
 } from '../lib/db';
-import { sendDiagSms } from '../lib/sms';
+import { normalizePhone, sendDiagSms } from '../lib/sms';
 import { sendSafetyAlert } from '../lib/report';
 import { newCaseToken } from '../lib/signing';
 import { badRequest, json, notFound, secretMatches, unauthorized } from '../lib/http';
@@ -61,6 +61,32 @@ export async function handleVoiceOpen(req: Request, env: Env): Promise<Response>
   const body = (await req.json().catch(() => null)) as OpenBody | null;
   const phone = body?.phone?.trim();
   if (!phone) throw badRequest('Champ `phone` requis.');
+
+  // A model in a hurry — an urgent caller, a low temperature — has been seen
+  // opening the case before asking anything, with "À confirmer" in every
+  // field. Refusing here, with a sentence it can act on, is cheaper than a
+  // case nobody can reach.
+  const looksLikeName = (v: string | undefined) =>
+    !!v && v.trim().length >= 2 && !/confirm|inconnu|\?|n\/a|xxx/i.test(v);
+  if (!normalizePhone(phone)) {
+    return json(
+      {
+        sayExactly:
+          'Je n’ai pas bien noté votre numéro. Vous pouvez me le redonner, chiffre par chiffre ?',
+        error: 'invalid_phone',
+      },
+      422,
+    );
+  }
+  if (!looksLikeName(body?.firstName) || !looksLikeName(body?.lastName)) {
+    return json(
+      {
+        sayExactly: 'Il me manque votre nom pour ouvrir le dossier. C’est à quel nom ?',
+        error: 'missing_name',
+      },
+      422,
+    );
+  }
 
   const token = newCaseToken();
   const created = await createCase(env, token, {

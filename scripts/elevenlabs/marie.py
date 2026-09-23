@@ -248,7 +248,8 @@ def cmd_run(a):
     cfg['turn']['soft_timeout_config'] = {'timeout_seconds': -1, 'message': '…', 'use_llm_generated_message': False}
     over = {'platform_settings': live.get('platform_settings', {}),
             'conversation_config': deep_merge(live['conversation_config'], cfg)}
-    body = {'tests': [{'test_id': i} for i in test_ids.values()], 'agent_config_override': over}
+    chosen = {n: i for n, i in test_ids.items() if not a.only or n.startswith(a.only)}
+    body = {'tests': [{'test_id': i} for i in chosen.values()], 'agent_config_override': over}
     if a.repeat > 1: body['repeat_count'] = a.repeat
     st, out = call('POST', f'/agents/{AGENT}/run-tests', body)
     if st != 200: sys.exit(f'run-tests {st} {json.dumps(out, ensure_ascii=False)[:1200]}')
@@ -314,6 +315,6 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest='cmd', required=True)
     for n in ['status', 'tools', 'tests']: sub.add_parser(n)
     for n in ['run', 'apply']:
-        s = sub.add_parser(n); s.add_argument('--llm', default='claude-sonnet-4-5'); s.add_argument('--temp', type=float, default=0.45); s.add_argument('--repeat', type=int, default=1); s.add_argument('--yes', action='store_true')
+        s = sub.add_parser(n); s.add_argument('--llm', default='claude-sonnet-4-5'); s.add_argument('--temp', type=float, default=0.45); s.add_argument('--repeat', type=int, default=1); s.add_argument('--yes', action='store_true'); s.add_argument('--only', default='')
     sub.add_parser('export').add_argument('invocations', nargs='+')
     a = ap.parse_args(); globals()[f'cmd_{a.cmd}'](a)

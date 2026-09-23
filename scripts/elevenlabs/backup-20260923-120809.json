@@ -1,0 +1,1002 @@
+{
+ "agent_id": "agent_3201m2jt9ec5ejkv1c4ycg2nqsdc",
+ "name": "SOS Cumulus v1",
+ "conversation_config": {
+  "asr": {
+   "quality": "high",
+   "provider": "scribe_realtime",
+   "user_input_audio_format": "pcm_16000",
+   "keywords": [],
+   "hold_session_across_commit": false,
+   "use_scribe_v3": false
+  },
+  "turn": {
+   "turn_timeout": 10.0,
+   "initial_wait_time": null,
+   "silence_end_call_timeout": -1.0,
+   "mode": "turn",
+   "turn_eagerness": "patient",
+   "spelling_patience": "auto",
+   "speculative_turn": true,
+   "retranscribe_on_turn_timeout": false,
+   "turn_model": "turn_v3",
+   "interruption_ignore_terms": [],
+   "interruption_ignore_term_languages": [],
+   "merge_with_default_ignore_terms": false,
+   "transcribe_on_disabled_interruptions": false,
+   "soft_timeout_config": {
+    "timeout_seconds": 2.5,
+    "message": "Un instant, je note.",
+    "additional_soft_timeout_messages": [],
+    "use_llm_generated_message": false,
+    "randomize_fillers": false,
+    "max_soft_timeouts_per_generation": 1,
+    "llm_generated_message_prompt_override": null,
+    "disable_until_first_user_message": false
+   }
+  },
+  "tts": {
+   "model_id": "eleven_flash_v2_5",
+   "voice_id": "NEjemlRxgWmL5ZGJetsB",
+   "supported_voices": [],
+   "expressive_mode": false,
+   "suggested_audio_tags": [],
+   "agent_output_audio_format": "pcm_48000",
+   "optimize_streaming_latency": 3,
+   "stability": 0.5,
+   "speed": 1.0,
+   "similarity_boost": 1.0,
+   "text_normalisation_type": "elevenlabs",
+   "pronunciation_dictionary_locators": [],
+   "enable_phoneme_tags": true,
+   "audio_effects": {
+    "filter_preset_id": "phone",
+    "distance": 0.0,
+    "environment_id": null,
+    "background_noise_id": null,
+    "send_level": 1.0,
+    "pan": 0.0,
+    "seed": null
+   }
+  },
+  "conversation": {
+   "text_only": false,
+   "max_duration_seconds": 600,
+   "max_duration_seconds_after_last_agent_message": null,
+   "client_events": [
+    "audio",
+    "interruption",
+    "user_transcript",
+    "agent_response",
+    "agent_response_correction",
+    "agent_chat_response_part"
+   ],
+   "file_input": {
+    "enabled": true,
+    "max_files_in_memory": 10,
+    "max_files_per_conversation": 10
+   },
+   "monitoring_enabled": false,
+   "monitoring_events": [
+    "user_transcript",
+    "agent_response",
+    "agent_response_correction"
+   ],
+   "dtmf_input_settings": null,
+   "background_sound": {
+    "source_type": "preset",
+    "source_id": "office2",
+    "volume": 0.02,
+    "crossfade_loop": true
+   },
+   "compaction": {
+    "enabled": null,
+    "soft_trigger_fraction": null,
+    "tail_size": null,
+    "min_reclaimable_tokens": null
+   },
+   "source_attribution": true
+  },
+  "language_presets": {},
+  "vad": {
+   "background_voice_detection": false,
+   "use_local_cpu_vad": false,
+   "cpu_vad_periodic_reset_seconds": 0.0,
+   "voice_activity_audio_threshold": null,
+   "narrowband_vad": false
+  },
+  "realtime_model": null,
+  "agent": {
+   "first_message": "{{greeting}}",
+   "language": "fr",
+   "hinglish_mode": false,
+   "dynamic_variables": {
+    "dynamic_variable_placeholders": {
+     "greeting": "",
+     "case_token": "",
+     "case_ref": "",
+     "handover": ""
+    }
+   },
+   "disable_first_message_interruptions": true,
+   "max_conversation_duration_message": "",
+   "text_behavior_overrides": null,
+   "subagents": [],
+   "prompt": {
+    "prompt": "Tu es Marie, standardiste du service dépannage de SOS Cumulus, entreprise de\nréparation et de remplacement de chauffe-eau en région lyonnaise. Tu fais\npartie de l'équipe : « nous », « nos techniciens ». Tu ne dis jamais que tu es\nune intelligence artificielle. Si on te le demande franchement, tu réponds que\ntu es l'assistante vocale de SOS Cumulus, et tu continues.\n\nRASSURER\n\nLa personne est stressée : plus d'eau chaude, ou de l'eau par terre. La\nrassurer, c'est lui faire entendre trois choses, et les tenir : on s'occupe\nd'elle, on va comprendre sa panne, on va lui apporter une solution. Ce sont\ndes actes, pas des sentiments. « On va voir ça ensemble » rassure ; « je\ncomprends que c'est pénible » commente, et c'est interdit.\n\nCes trois promesses reviennent aux bons moments, une phrase courte à chaque\nfois — jamais toutes d'un coup, jamais en tirade :\n- quand elle a exposé son problème : on s'en occupe, ensemble.\n- quand le dossier est ouvert : c'est noté, on est dessus.\n- quand tu demandes les photos : c'est ce qui permet de comprendre la panne et\n  de proposer la bonne solution.\n- quand elle attend : tu restes avec elle.\n- quand tu transfères : quelqu'un prend le relais tout de suite.\n\nPlusieurs de ces phrases te sont fournies toutes faites par les outils, dans\nsayExactly. Tu les lis telles quelles : elles ont été écrites pour ça.\n\nTon calme passe par la brièveté et par la voix, pas par des mots sur son\ninquiétude.\n\nRÈGLES DE PAROLE — elles priment sur tout le reste\n\n- Interdits, sans exception : « je comprends », « je vois que », « pas de\n  souci », « n'hésitez pas », « c'est quoi », « dans les meilleurs délais »,\n  et « déjà » en fin de question. Surtout quand le client insiste ou\n  s'impatiente — c'est précisément là que ces phrases reviennent, et c'est\n  là qu'elles sonnent le plus faux.\n- Une phrase par tour. Deux au maximum. Jamais trois. Le texte d'un\n  sayExactly ne compte pas : il a la longueur qu'il a, et une question peut\n  le suivre.\n- Quinze mots par phrase, pas plus — hors sayExactly.\n- Une question à la fois, posée directement. Aucune justification avant une\n  question.\n- Tu ne commentes jamais le problème du client ni ce qu'il ressent. Tu le\n  notes, tu avances.\n- Vouvoiement. « Votre nom », « votre numéro ». Le registre d'un standard\n  professionnel, pas d'une amie.\n- Un seul mot de liaison par tour, au maximum : « alors », « d'accord »,\n  « très bien ». Jamais deux.\n- Tu ne répètes pas ce que le client vient de dire, sauf un numéro de\n  téléphone, pour le faire confirmer.\n- Une balise entre crochets, comme [calm] ou [warm], est une consigne de ton\n  pour la voix, pas un mot : une au maximum par tour, en tête, toujours dans\n  le registre calme et chaleureux. Rien d'autre entre crochets, pas\n  d'émoticône, pas de mise en forme.\n\nPREMIÈRE PHRASE\n\nElle est fixée par la configuration. Tu n'y ajoutes rien. Si tu dois ouvrir\ntoi-même : « SOS Cumulus bonjour ! Marie à votre écoute, comment puis-je vous\naider ? » — puis tu te tais.\n\nCE QUI SE LIT MOT POUR MOT\n\nChaque outil renvoie un champ sayExactly. Ta réponse qui suit un outil\nCOMMENCE par ce texte, copié caractère pour caractère — ni résumé, ni\nreformulé, ni raccourci. Tu peux enchaîner une question après, jamais avant.\nSi tu dis autre chose à la place, le client n'entend pas ce qui vient d'être\nfait pour lui — par exemple que son SMS est parti — et tout ce qui suit\ndéraille.\n\nJAMAIS\n\n- un prix, un délai, une marque ou un modèle qui ne vient pas d'un outil\n- une date d'intervention\n- un numéro de carte, un RIB, un mot de passe\n- insister quand quelqu'un veut raccrocher\n\nDÉROULÉ\n\n1. L'accueil est déjà dit. Tu écoutes la réponse jusqu'au bout.\n2. Tu rassures en une phrase et tu demandes le nom dans le même souffle. Le\n   mouvement exact : « Ne vous inquiétez pas, on va voir tout cela ensemble.\n   C'est à quel nom ? » — même longueur, même ordre. Rassurer d'abord,\n   demander ensuite, et rien entre les deux. Tu ne devines jamais monsieur ou\n   madame avant d'avoir entendu le nom.\n3. Tu demandes le numéro de téléphone. Tu le répètes un chiffre à la fois pour\n   le faire confirmer — « zéro, six, un, deux », jamais par paires comme\n   « douze » ou « quatre-vingt-dix-neuf ».\n4. Tu appelles open_case. reportedIssue contient les mots du client, sans\n   traduction technique. Tu lis sayExactly.\n5. La question de sécurité : est-ce que de l'eau coule, ou est-ce que le\n   disjoncteur a sauté. Si le client l'a déjà dit, tu fais confirmer au lieu de\n   redemander.\n6. Tu appelles triage.\n   transfer = true → tu lis sayExactly, tu transfères. Rien d'autre : pas de\n   photo, pas de devis.\n   transfer = false et smsSent = true → tu lis sayExactly, tu continues.\n   transfer = false, smsSent = false, smsBlocked = true → numéro hors de la\n   liste de test : tu lis sayExactly et tu continues, sans transférer.\n   transfer = false, smsSent = false, smsBlocked = false → le SMS n'a pas pu\n   partir : tu lis sayExactly, tu transfères.\n7. Tu proposes le choix : rester en ligne pendant les photos, ou raccrocher et\n   recevoir le devis par SMS. Sans orienter. Dans les deux cas tu dis qu'on\n   s'en occupe. S'il raccroche, tu le salues.\n8. S'il reste : tu appelles check_photos toutes les vingt à trente secondes,\n   ou quand il dit avoir fini une photo. Tu lis sayExactly. Entre deux, tu te\n   tais.\n9. complete = true → tu appelles get_quote. ready = false : tu lis sayExactly,\n   tu rappelles trente secondes plus tard. ready = true : tu lis sayExactly.\n   Tu ne donnes jamais d'ordre de grandeur, même si on insiste.\n10. Le client accepte → tu appelles accept_quote, puis tu transfères pour le\n    rendez-vous. Si sayExactly a annoncé qu'un technicien rappelle, tu ne\n    transfères pas : tu clos l'appel simplement, la suite est entre leurs\n    mains.\n\nSITUATIONS\n\n- Il demande à parler à quelqu'un → tu transfères.\n- Beaucoup d'eau, ou un client affolé → tu transfères, même si le triage\n  disait non.\n- Le SMS n'arrive toujours pas après une bonne minute → tu redonnes la\n  référence du dossier, tu transfères. Pas avant : un SMS met parfois trente\n  secondes.\n- Il demande le prix avant les photos → ça dépend de ce qu'elles montreront,\n  c'est pour ça qu'on les demande.\n- Il demande quand on vient, ou quand on le rappelle → ni délai ni promesse,\n  même vague : pas de « rapidement », pas de « dans les meilleurs délais ».\n  C'est le technicien qui fixe le rendez-vous avec lui. Une phrase, puis tu\n  clos l'appel.\n- Hors sujet → une réponse brève, retour au déroulé.",
+    "llm": "claude-sonnet-4-5",
+    "reasoning_effort": null,
+    "service_tier": "standard",
+    "opener": null,
+    "thinking_budget": null,
+    "enable_reasoning_summary": false,
+    "temperature": 0.45,
+    "max_tokens": -1,
+    "tool_ids": [
+     "tool_5301m2jx83ghe5kr9yapfxtaw53f",
+     "tool_4501m2jx83v0e4qsswhrdmkjpr1z",
+     "tool_2701m2jx841jemgt2fdjdnfvs9m2",
+     "tool_7001m2jx84a4e3qajrpyhmzw7hm0",
+     "tool_3001m2jx84g7eska9fw1rwtrrysg"
+    ],
+    "built_in_tools": {
+     "transfer_to_agent": null,
+     "update_state": null,
+     "memory_entry_search": null,
+     "run_subagent": null,
+     "request_help": null,
+     "end_call": null,
+     "language_detection": null,
+     "transfer_to_number": {
+      "type": "system",
+      "name": "transfer_to_number",
+      "description": "",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "params": {
+       "system_tool_type": "transfer_to_number",
+       "transfers": [
+        {
+         "custom_sip_headers": [],
+         "transfer_destination": {
+          "type": "phone",
+          "phone_number": "+33684780721"
+         },
+         "transfer_type": "conference",
+         "sip_refer_play_dialtone": true,
+         "uui": null,
+         "post_dial_digits": null,
+         "require_acceptance": false,
+         "phone_number": "+33684780721",
+         "condition": "Fuite d'eau ou disjoncteur (transfer = true) ; le client demande quelqu'un ; le SMS n'est pas parti ; le devis est accepté."
+        }
+       ],
+       "enable_client_message": true
+      }
+     },
+     "skip_turn": null,
+     "play_keypad_touch_tone": null,
+     "voicemail_detection": null,
+     "transfer_to_genesys": null,
+     "transfer_to_genesys_chat": null,
+     "transfer_to_genesys_bot": null
+    },
+    "enable_parallel_tool_calls": false,
+    "mcp_server_ids": [],
+    "native_mcp_server_ids": [],
+    "knowledge_base": [],
+    "custom_llm": null,
+    "bedrock_llm": null,
+    "speech_engine": null,
+    "ignore_default_personality": true,
+    "rag": {
+     "enabled": false,
+     "embedding_model": "e5_mistral_7b_instruct",
+     "optional_rag_enabled": false,
+     "max_vector_distance": 0.6,
+     "max_documents_length": 50000,
+     "max_retrieved_rag_chunks_count": 20,
+     "num_candidates": null,
+     "query_rewrite_prompt_override": null,
+     "knowledge_base_tool_info": null,
+     "include_source_urls": false
+    },
+    "timezone": "Europe/Madrid",
+    "backup_llm_config": {
+     "preference": "default"
+    },
+    "cascade_timeout_seconds": 4.0,
+    "tools": [
+     {
+      "type": "webhook",
+      "name": "open_case",
+      "description": "Crée le dossier de diagnostic. À appeler une seule fois, et seulement après avoir répété le numéro de téléphone au client un chiffre à la fois et obtenu sa confirmation — jamais avant. N'envoie rien au client : le SMS dépend de la réponse à la question de sécurité, posée juste après.",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [
+       {
+        "source": "response",
+        "dynamic_variable": "case_token",
+        "value_path": "token",
+        "sanitize": false,
+        "preserve_native_type": false
+       },
+       {
+        "source": "response",
+        "dynamic_variable": "case_ref",
+        "value_path": "ref",
+        "sanitize": false,
+        "preserve_native_type": false
+       }
+      ],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "dynamic_variables": {
+       "dynamic_variable_placeholders": {}
+      },
+      "execution_mode": "immediate",
+      "api_schema": {
+       "request_headers": {
+        "x-voice-secret": {
+         "secret_id": "yqk9pJshFVzGrcVPcvaL"
+        }
+       },
+       "kind": "webhook",
+       "url": "https://diag-api.soscumulus.fr/api/voice/case",
+       "method": "POST",
+       "path_params_schema": {},
+       "query_params_schema": null,
+       "request_body_schema": {
+        "description": "",
+        "dynamic_variable": "",
+        "is_omitted": false,
+        "type": "object",
+        "required": [
+         "firstName",
+         "lastName",
+         "phone",
+         "reportedIssue"
+        ],
+        "properties": {
+         "firstName": {
+          "type": "string",
+          "description": "Prénom",
+          "enum": null,
+          "is_system_provided": false,
+          "dynamic_variable": "",
+          "allowed_values": null,
+          "allowed_values_dynamic_variable": "",
+          "constant_value": "",
+          "is_omitted": false
+         },
+         "lastName": {
+          "type": "string",
+          "description": "Nom",
+          "enum": null,
+          "is_system_provided": false,
+          "dynamic_variable": "",
+          "allowed_values": null,
+          "allowed_values_dynamic_variable": "",
+          "constant_value": "",
+          "is_omitted": false
+         },
+         "phone": {
+          "type": "string",
+          "description": "Numéro au format +33…",
+          "enum": null,
+          "is_system_provided": false,
+          "dynamic_variable": "",
+          "allowed_values": null,
+          "allowed_values_dynamic_variable": "",
+          "constant_value": "",
+          "is_omitted": false
+         },
+         "reportedIssue": {
+          "type": "string",
+          "description": "Le problème avec les mots du client, sans traduction technique",
+          "enum": null,
+          "is_system_provided": false,
+          "dynamic_variable": "",
+          "allowed_values": null,
+          "allowed_values_dynamic_variable": "",
+          "constant_value": "",
+          "is_omitted": false
+         }
+        }
+       },
+       "response_body_schema": null,
+       "response_filter": null,
+       "content_type": "application/json",
+       "auth_resolved_params": [],
+       "auth_connection": null,
+       "mtls_auth_connection": null
+      },
+      "follow_redirects": false,
+      "follow_redirects_allowed_domains": []
+     },
+     {
+      "type": "webhook",
+      "name": "triage",
+      "description": "Enregistre la réponse à la question de sécurité. Renvoie transfer : vrai s'il faut passer l'appel à un technicien. Si transfer est faux, envoie au client le SMS avec son lien et le signale par smsSent. leak vaut vrai si le client voit de l'eau couler, powerCut vaut vrai si son disjoncteur a sauté.",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [
+       {
+        "source": "response",
+        "dynamic_variable": "handover",
+        "value_path": "handover",
+        "sanitize": false,
+        "preserve_native_type": false
+       }
+      ],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "dynamic_variables": {
+       "dynamic_variable_placeholders": {}
+      },
+      "execution_mode": "immediate",
+      "api_schema": {
+       "request_headers": {
+        "x-voice-secret": {
+         "secret_id": "yqk9pJshFVzGrcVPcvaL"
+        }
+       },
+       "kind": "webhook",
+       "url": "https://diag-api.soscumulus.fr/api/voice/case/{case_token}/triage",
+       "method": "POST",
+       "path_params_schema": {
+        "case_token": {
+         "type": "string",
+         "description": "",
+         "enum": null,
+         "is_system_provided": false,
+         "dynamic_variable": "case_token",
+         "allowed_values": null,
+         "allowed_values_dynamic_variable": "",
+         "constant_value": "",
+         "is_omitted": false
+        }
+       },
+       "query_params_schema": null,
+       "request_body_schema": {
+        "description": "",
+        "dynamic_variable": "",
+        "is_omitted": false,
+        "type": "object",
+        "required": [
+         "leak",
+         "powerCut"
+        ],
+        "properties": {
+         "leak": {
+          "type": "boolean",
+          "description": "De l'eau coule",
+          "enum": null,
+          "is_system_provided": false,
+          "dynamic_variable": "",
+          "allowed_values": null,
+          "allowed_values_dynamic_variable": "",
+          "constant_value": "",
+          "is_omitted": false
+         },
+         "powerCut": {
+          "type": "boolean",
+          "description": "Le disjoncteur a sauté",
+          "enum": null,
+          "is_system_provided": false,
+          "dynamic_variable": "",
+          "allowed_values": null,
+          "allowed_values_dynamic_variable": "",
+          "constant_value": "",
+          "is_omitted": false
+         }
+        }
+       },
+       "response_body_schema": null,
+       "response_filter": null,
+       "content_type": "application/json",
+       "auth_resolved_params": [],
+       "auth_connection": null,
+       "mtls_auth_connection": null
+      },
+      "follow_redirects": false,
+      "follow_redirects_allowed_domains": []
+     },
+     {
+      "type": "webhook",
+      "name": "check_photos",
+      "description": "Indique quelles photos sont arrivées et ce qui a été lu sur l'étiquette. À appeler pendant que le client prend ses photos, toutes les vingt à trente secondes, jamais plus souvent.",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "dynamic_variables": {
+       "dynamic_variable_placeholders": {}
+      },
+      "execution_mode": "immediate",
+      "api_schema": {
+       "request_headers": {
+        "x-voice-secret": {
+         "secret_id": "yqk9pJshFVzGrcVPcvaL"
+        }
+       },
+       "kind": "webhook",
+       "url": "https://diag-api.soscumulus.fr/api/voice/case/{case_token}/progress",
+       "method": "GET",
+       "path_params_schema": {
+        "case_token": {
+         "type": "string",
+         "description": "",
+         "enum": null,
+         "is_system_provided": false,
+         "dynamic_variable": "case_token",
+         "allowed_values": null,
+         "allowed_values_dynamic_variable": "",
+         "constant_value": "",
+         "is_omitted": false
+        }
+       },
+       "query_params_schema": null,
+       "request_body_schema": null,
+       "response_body_schema": null,
+       "response_filter": null,
+       "content_type": "application/json",
+       "auth_resolved_params": [],
+       "auth_connection": null,
+       "mtls_auth_connection": null
+      },
+      "follow_redirects": false,
+      "follow_redirects_allowed_domains": []
+     },
+     {
+      "type": "webhook",
+      "name": "get_quote",
+      "description": "Produit le devis une fois les photos reçues. Si ready vaut faux, le calcul est en cours : patienter une trentaine de secondes et rappeler l'outil.",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "dynamic_variables": {
+       "dynamic_variable_placeholders": {}
+      },
+      "execution_mode": "immediate",
+      "api_schema": {
+       "request_headers": {
+        "x-voice-secret": {
+         "secret_id": "yqk9pJshFVzGrcVPcvaL"
+        }
+       },
+       "kind": "webhook",
+       "url": "https://diag-api.soscumulus.fr/api/case/{case_token}/quote",
+       "method": "POST",
+       "path_params_schema": {
+        "case_token": {
+         "type": "string",
+         "description": "",
+         "enum": null,
+         "is_system_provided": false,
+         "dynamic_variable": "case_token",
+         "allowed_values": null,
+         "allowed_values_dynamic_variable": "",
+         "constant_value": "",
+         "is_omitted": false
+        }
+       },
+       "query_params_schema": null,
+       "request_body_schema": {
+        "description": "",
+        "dynamic_variable": "",
+        "is_omitted": false,
+        "type": "object",
+        "required": [],
+        "properties": {}
+       },
+       "response_body_schema": null,
+       "response_filter": null,
+       "content_type": "application/json",
+       "auth_resolved_params": [],
+       "auth_connection": null,
+       "mtls_auth_connection": null
+      },
+      "follow_redirects": false,
+      "follow_redirects_allowed_domains": []
+     },
+     {
+      "type": "webhook",
+      "name": "accept_quote",
+      "description": "Enregistre l'acceptation du devis par le client.",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "dynamic_variables": {
+       "dynamic_variable_placeholders": {}
+      },
+      "execution_mode": "immediate",
+      "api_schema": {
+       "request_headers": {
+        "x-voice-secret": {
+         "secret_id": "yqk9pJshFVzGrcVPcvaL"
+        }
+       },
+       "kind": "webhook",
+       "url": "https://diag-api.soscumulus.fr/api/case/{case_token}/quote/accept",
+       "method": "POST",
+       "path_params_schema": {
+        "case_token": {
+         "type": "string",
+         "description": "",
+         "enum": null,
+         "is_system_provided": false,
+         "dynamic_variable": "case_token",
+         "allowed_values": null,
+         "allowed_values_dynamic_variable": "",
+         "constant_value": "",
+         "is_omitted": false
+        }
+       },
+       "query_params_schema": null,
+       "request_body_schema": {
+        "description": "",
+        "dynamic_variable": "",
+        "is_omitted": false,
+        "type": "object",
+        "required": [],
+        "properties": {}
+       },
+       "response_body_schema": null,
+       "response_filter": null,
+       "content_type": "application/json",
+       "auth_resolved_params": [],
+       "auth_connection": null,
+       "mtls_auth_connection": null
+      },
+      "follow_redirects": false,
+      "follow_redirects_allowed_domains": []
+     },
+     {
+      "type": "system",
+      "name": "transfer_to_number",
+      "description": "",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "params": {
+       "system_tool_type": "transfer_to_number",
+       "transfers": [
+        {
+         "custom_sip_headers": [],
+         "transfer_destination": {
+          "type": "phone",
+          "phone_number": "+33684780721"
+         },
+         "transfer_type": "conference",
+         "sip_refer_play_dialtone": true,
+         "uui": null,
+         "post_dial_digits": null,
+         "require_acceptance": false,
+         "phone_number": "+33684780721",
+         "condition": "Fuite d'eau ou disjoncteur (transfer = true) ; le client demande quelqu'un ; le SMS n'est pas parti ; le devis est accepté."
+        }
+       ],
+       "enable_client_message": true
+      }
+     }
+    ]
+   }
+  }
+ },
+ "metadata": {
+  "created_at_unix_secs": 1789485432,
+  "updated_at_unix_secs": 1790157903
+ },
+ "platform_settings": {
+  "evaluation": {
+   "criteria": []
+  },
+  "widget": {
+   "variant": "full",
+   "placement": "bottom-right",
+   "expandable": "never",
+   "avatar": {
+    "type": "orb",
+    "color_1": "#1B3A5C",
+    "color_2": "#FF5B29"
+   },
+   "feedback_mode": "during",
+   "end_feedback": {
+    "type": "rating"
+   },
+   "bg_color": "#ffffff",
+   "text_color": "#1b2430",
+   "btn_color": "#FF5B29",
+   "btn_text_color": "#ffffff",
+   "border_color": "#e3e9f2",
+   "focus_color": "#1B3A5C",
+   "border_radius": null,
+   "btn_radius": null,
+   "action_text": "Besoin d’aide ?",
+   "start_call_text": "Parler à Marie",
+   "end_call_text": "Raccrocher",
+   "expand_text": null,
+   "listening_text": null,
+   "speaking_text": null,
+   "shareable_page_text": null,
+   "shareable_page_show_terms": true,
+   "terms_text": "#### Terms and conditions\n\nBy clicking \"Agree,\" and each time I interact with this AI agent, I consent to the recording, storage, and sharing of my communications with third-party service providers, and as described in the Privacy Policy.\nIf you do not wish to have your conversations recorded, please refrain from using this service.",
+   "terms_html": "<h4>Terms and conditions</h4>\n<p>By clicking &quot;Agree,&quot; and each time I interact with this AI agent, I consent to the recording, storage, and sharing of my communications with third-party service providers, and as described in the Privacy Policy.\nIf you do not wish to have your conversations recorded, please refrain from using this service.</p>\n",
+   "terms_key": null,
+   "show_avatar_when_collapsed": false,
+   "disable_banner": false,
+   "override_link": null,
+   "markdown_link_allowed_hosts": [],
+   "markdown_link_include_www": true,
+   "markdown_link_allow_http": true,
+   "mic_muting_enabled": true,
+   "transcript_enabled": true,
+   "text_input_enabled": true,
+   "conversation_mode_toggle_enabled": false,
+   "default_expanded": false,
+   "always_expanded": false,
+   "dismissible": false,
+   "show_agent_status": false,
+   "show_conversation_id": true,
+   "strip_audio_tags": true,
+   "syntax_highlight_theme": null,
+   "text_contents": {
+    "main_label": null,
+    "start_call": null,
+    "start_chat": null,
+    "new_call": null,
+    "end_call": null,
+    "mute_microphone": null,
+    "change_language": null,
+    "collapse": null,
+    "expand": null,
+    "copied": null,
+    "accept_terms": null,
+    "dismiss_terms": null,
+    "listening_status": null,
+    "speaking_status": null,
+    "connecting_status": null,
+    "chatting_status": null,
+    "input_label": null,
+    "input_placeholder": null,
+    "input_placeholder_text_only": null,
+    "input_placeholder_new_conversation": null,
+    "user_ended_conversation": null,
+    "agent_ended_conversation": null,
+    "conversation_id": null,
+    "error_occurred": null,
+    "copy_id": null,
+    "initiate_feedback": null,
+    "request_follow_up_feedback": null,
+    "thanks_for_feedback": null,
+    "thanks_for_feedback_details": null,
+    "follow_up_feedback_placeholder": null,
+    "submit": null,
+    "go_back": null,
+    "send_message": null,
+    "text_mode": null,
+    "voice_mode": null,
+    "switched_to_text_mode": null,
+    "switched_to_voice_mode": null,
+    "copy": null,
+    "download": null,
+    "wrap": null,
+    "agent_working": null,
+    "agent_done": null,
+    "agent_error": null,
+    "attach_file": null,
+    "remove_file": null,
+    "file_upload_error": null,
+    "file_type_unsupported": null,
+    "file_too_large": null,
+    "file_limit_reached": null,
+    "typing_indicator": null
+   },
+   "styles": {
+    "base": null,
+    "base_hover": null,
+    "base_active": null,
+    "base_border": null,
+    "base_subtle": null,
+    "base_primary": null,
+    "base_error": null,
+    "accent": null,
+    "accent_hover": null,
+    "accent_active": null,
+    "accent_border": null,
+    "accent_subtle": null,
+    "accent_primary": null,
+    "overlay_padding": null,
+    "button_radius": null,
+    "input_radius": null,
+    "bubble_radius": null,
+    "sheet_radius": null,
+    "compact_sheet_radius": null,
+    "dropdown_sheet_radius": null
+   },
+   "show_resize_button": true,
+   "language_selector": false,
+   "supports_text_only": true,
+   "custom_avatar_path": null,
+   "language_presets": {},
+   "first_message_quick_replies": []
+  },
+  "data_collection": {},
+  "data_collection_scopes": {},
+  "analysis_items": {
+   "evaluation_criteria": [],
+   "data_collection": []
+  },
+  "overrides": {
+   "conversation_config_override": {
+    "asr": {
+     "keywords": false
+    },
+    "turn": {
+     "soft_timeout_config": {
+      "message": false,
+      "additional_soft_timeout_messages": false
+     }
+    },
+    "tts": {
+     "model_id": false,
+     "voice_id": false,
+     "supported_voices": false,
+     "stability": false,
+     "speed": false,
+     "similarity_boost": false,
+     "pronunciation_dictionary_locators": false
+    },
+    "conversation": {
+     "text_only": true,
+     "max_duration_seconds": false
+    },
+    "agent": {
+     "first_message": false,
+     "language": false,
+     "max_conversation_duration_message": false,
+     "prompt": {
+      "prompt": false,
+      "llm": false,
+      "tool_ids": false,
+      "native_mcp_server_ids": false,
+      "knowledge_base": false
+     }
+    }
+   },
+   "custom_llm_extra_body": false,
+   "enable_conversation_initiation_client_data_from_webhook": false,
+   "enable_starting_workflow_node_id_from_client": false,
+   "enable_procedure_ids_from_client": false
+  },
+  "workspace_overrides": {
+   "conversation_initiation_client_data_webhook": {
+    "url": "https://diag-api.soscumulus.fr/api/voice/greeting",
+    "request_headers": {}
+   },
+   "webhooks": {
+    "post_call_webhook_id": null,
+    "events": [
+     "transcript"
+    ],
+    "transcript_format": "json",
+    "send_audio": false
+   },
+   "cloud_storage_export": {
+    "destination_id": null,
+    "events": [
+     "transcript"
+    ],
+    "transcript_format": "json"
+   }
+  },
+  "testing": {
+   "attached_tests": [
+    {
+     "test_id": "test_2101m2jxr1qyebw9nb9q4s2bb311",
+     "workflow_node_id": null
+    }
+   ],
+   "referenced_tests_ids": [
+    "test_2101m2jxr1qyebw9nb9q4s2bb311"
+   ]
+  },
+  "archived": false,
+  "guardrails": {
+   "version": "1",
+   "focus": {
+    "is_enabled": false
+   },
+   "prompt_injection": {
+    "is_enabled": false
+   },
+   "synthetic_voice": {
+    "is_enabled": false,
+    "trigger_action": {
+     "type": "end_call"
+    }
+   },
+   "content": {
+    "execution_mode": "streaming",
+    "config": {
+     "sexual": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "violence": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "harassment": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "self_harm": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "profanity": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "religion_or_politics": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "medical_and_legal_information": {
+      "is_enabled": false,
+      "threshold": "medium"
+     }
+    },
+    "trigger_action": {
+     "type": "end_call"
+    }
+   },
+   "moderation": null,
+   "custom": {
+    "config": {
+     "configs": []
+    }
+   }
+  },
+  "summary_language": null,
+  "auto_translate_transcript_to_app_language": null,
+  "auth": {
+   "enable_auth": false,
+   "allowlist": [],
+   "require_origin_header": false,
+   "shareable_token": null
+  },
+  "call_limits": {
+   "agent_concurrency_limit": -1,
+   "daily_limit": 100000,
+   "bursting_enabled": true
+  },
+  "queueing_config": {
+   "enabled": false,
+   "wait_timeout_seconds": 180,
+   "hold_audio": null
+  },
+  "ban": null,
+  "smb_metadata": null,
+  "privacy": {
+   "record_voice": true,
+   "retention_days": -1,
+   "delete_transcript_and_pii": false,
+   "delete_audio": false,
+   "apply_to_existing_conversations": false,
+   "zero_retention_mode": false,
+   "nested_history_redaction": false,
+   "conversation_history_redaction": {
+    "enabled": false,
+    "entities": []
+   },
+   "user_memory": {
+    "enabled": false,
+    "scale": "balanced"
+   }
+  },
+  "trust_context": "unknown",
+  "analysis_llm": "gemini-2.5-flash",
+  "analysis_bedrock_llm": null,
+  "analysis_llm_billed": false,
+  "topic_discovery": {
+   "enabled": true
+  },
+  "sentiment_analysis": {
+   "enabled": true
+  },
+  "simulation_library": {
+   "enabled": false,
+   "test_ids": []
+  },
+  "alerting": null,
+  "overview_dashboard_template_id": null,
+  "safety": {
+   "is_blocked_ivc": false,
+   "is_blocked_non_ivc": false,
+   "ignore_safety_evaluation": false
+  }
+ },
+ "phone_numbers": [],
+ "whatsapp_accounts": [],
+ "workflow": {
+  "edges": {},
+  "nodes": {
+   "start_node": {
+    "type": "start",
+    "position": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "edge_order": [],
+    "parent_subgraph_id": null
+   }
+  },
+  "subgraphs": {},
+  "prevent_subagent_loops": false
+ },
+ "access_info": {
+  "is_creator": true,
+  "creator_name": "Maxime PERON",
+  "creator_email": "maxime.peron@gmail.com",
+  "role": "admin",
+  "anonymous_access_level_override": null,
+  "access_source": "creator"
+ },
+ "access_permissions": [
+  "agent_edit_config",
+  "agent_run_tests",
+  "agent_view_analytics",
+  "agent_view_config",
+  "agent_view_conversation_history",
+  "resource_delete",
+  "resource_manage_access"
+ ],
+ "tags": [],
+ "version_id": "agtvrsn_4501m36vkn7kerar3sp9bwbkqnhj",
+ "branch_id": "agtbrch_4701m2jt9fr3f4htxyaezpvv0eg5",
+ "main_branch_id": "agtbrch_4701m2jt9fr3f4htxyaezpvv0eg5",
+ "procedures": {},
+ "trust_context": "unknown",
+ "default_hold_audio_url": "https://eleven-public-cdn-common.elevenlabs.io/convai/ambient-audio-assets/elevator1.mp3"
+}
