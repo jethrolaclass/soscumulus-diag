@@ -213,6 +213,18 @@ SITUATIONS
 - Hors sujet → une réponse brève, retour au déroulé.
 ```
 
+## Modèle
+
+`claude-sonnet-4-6`, température 0,45. Choisi sur mesure, pas sur réputation :
+Sonnet 4.5 glissait un « je comprends votre situation » une fois sur trois
+quand le client insistait sur l'heure, et trois formulations du prompt n'y
+ont rien changé — le réflexe était dans le modèle. Sonnet 5 n'a pas ce
+réflexe mais enchaîne deux outils d'un trait et avale le second `sayExactly`.
+4.6 fait 9/9 sur les trois scénarios, au même prix que 4.5.
+
+Pour changer de modèle : `marie.py run --llm … --repeat 3` sur les trois
+scénarios d'abord, `apply` ensuite. Jamais l'inverse.
+
 ## Réglages de conversation
 
 Le naturel ne se règle pas seulement dans le prompt. Trois réglages de l'agent

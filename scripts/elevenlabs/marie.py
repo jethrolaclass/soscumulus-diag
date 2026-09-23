@@ -315,6 +315,6 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest='cmd', required=True)
     for n in ['status', 'tools', 'tests']: sub.add_parser(n)
     for n in ['run', 'apply']:
-        s = sub.add_parser(n); s.add_argument('--llm', default='claude-sonnet-4-5'); s.add_argument('--temp', type=float, default=0.45); s.add_argument('--repeat', type=int, default=1); s.add_argument('--yes', action='store_true'); s.add_argument('--only', default='')
+        s = sub.add_parser(n); s.add_argument('--llm', default='claude-sonnet-4-6'); s.add_argument('--temp', type=float, default=0.45); s.add_argument('--repeat', type=int, default=1); s.add_argument('--yes', action='store_true'); s.add_argument('--only', default='')
     sub.add_parser('export').add_argument('invocations', nargs='+')
     a = ap.parse_args(); globals()[f'cmd_{a.cmd}'](a)
