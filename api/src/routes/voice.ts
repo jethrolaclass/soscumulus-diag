@@ -81,7 +81,7 @@ export async function handleVoiceOpen(req: Request, env: Env): Promise<Response>
   if (!looksLikeName(body?.firstName) || !looksLikeName(body?.lastName)) {
     return json(
       {
-        sayExactly: 'Il me manque votre nom pour ouvrir le dossier. Pouvez-vous m’indiquer vos noms et prénoms, s’il vous plaît ?',
+        sayExactly: 'Il me manque votre nom pour ouvrir le dossier. Pouvez-vous m’indiquer vos nom et prénom, s’il vous plaît ?',
         error: 'missing_name',
       },
       422,
