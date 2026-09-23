@@ -556,6 +556,13 @@ function sendInterventionRequest(d) {
     if (folder) pdfUrl = folder.createFile(pdfBlob).getUrl();
   }
 
+  // The sheet was filed by buildReport when the diagnosis came in, well
+  // before the signature: the technician gets the quote and the sheet in the
+  // same email, so nobody has to go looking in Drive before calling back.
+  var fiche = findFiche_(folder, d.ref);
+  var ficheBlob = fiche ? fiche.getBlob().setName("Fiche d'intervention " + d.ref + ".pdf") : null;
+  var ficheUrl = fiche ? fiche.getUrl() : "";
+
   var demo = d.demo ? " (DÉMONSTRATION)" : "";
   var body =
     "Le client a signé son devis. Une intervention est à planifier.\n\n" +
@@ -569,18 +576,20 @@ function sendInterventionRequest(d) {
     "Cause probable : " + (diag.likelyCause || "—") + "\n\n" +
     "Devis signé le " + fmtDate_(d.signedAt) + " :\n  " + lines.join("\n  ") + "\n  Total TTC : " + (q.total != null ? q.total + " €" : "—") + "\n\n" +
     "Dossier en ligne : " + (d.caseUrl || "") + "\n" +
-    (pdfUrl ? "PDF signé : " + pdfUrl + "\n" : "");
+    (pdfUrl ? "PDF signé : " + pdfUrl + "\n" : "") +
+    (ficheUrl ? "Fiche d'intervention : " + ficheUrl + "\n" : "Fiche d'intervention : introuvable dans Drive\n");
 
   var mail = {
     to: to,
     subject: "🛠️ Demande d'intervention — " + d.ref + " — " + who + demo,
     body: body,
-    htmlBody: buildInterventionHtml_(d, who, lines, pdfUrl),
+    htmlBody: buildInterventionHtml_(d, who, lines, pdfUrl, ficheUrl),
     name: "SOS Cumulus — Devis signé",
   };
-  if (pdfBlob) mail.attachments = [pdfBlob];
+  var attachments = [pdfBlob, ficheBlob].filter(function (b) { return b; });
+  if (attachments.length) mail.attachments = attachments;
   MailApp.sendEmail(mail);
-  return { ok: true, pdfUrl: pdfUrl };
+  return { ok: true, pdfUrl: pdfUrl, ficheUrl: ficheUrl };
 }
 
 /** The case folder is named "<ref> — <city> — <date>"; find it by its prefix. */
@@ -595,12 +604,32 @@ function findCaseFolder_(ref) {
   return null;
 }
 
+/**
+ * The PDF of the intervention sheet. Looked for in the case folder first, then
+ * in any other folder carrying the same reference: a report generated twice
+ * leaves two folders, and the sheet may sit in either.
+ */
+function findFiche_(folder, ref) {
+  var name = "Fiche " + ref + ".pdf";
+  if (folder) {
+    var own = folder.getFilesByName(name);
+    if (own.hasNext()) return own.next();
+  }
+  var root = DriveApp.getFolderById(P.getProperty("ARCHIVE_FOLDER_ID"));
+  var it = root.searchFolders("title contains '" + String(ref).replace(/'/g, "") + "'");
+  while (it.hasNext()) {
+    var files = it.next().getFilesByName(name);
+    if (files.hasNext()) return files.next();
+  }
+  return null;
+}
+
 function fmtDate_(iso) {
   if (!iso) return "—";
   return Utilities.formatDate(new Date(iso), "Europe/Paris", "dd/MM/yyyy 'à' HH:mm");
 }
 
-function buildInterventionHtml_(d, who, lines, pdfUrl) {
+function buildInterventionHtml_(d, who, lines, pdfUrl, ficheUrl) {
   var c = d.client || {}, q = d.quote || {}, diag = d.diagnosis || {};
   var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>]/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]; }); };
   var row = function (k, v) { return "<tr><td style='padding:4px 12px 4px 0;color:#6b7a8f'>" + k + "</td><td style='padding:4px 0'>" + esc(v) + "</td></tr>"; };
@@ -618,7 +647,12 @@ function buildInterventionHtml_(d, who, lines, pdfUrl) {
     "<h3 style='margin:18px 0 6px;font-size:14px;color:#1B3A5C'>Devis signé le " + esc(fmtDate_(d.signedAt)) + "</h3>" +
     "<ul style='margin:0 0 8px;padding-left:18px'>" + lines.map(function (l) { return "<li>" + esc(l) + "</li>"; }).join("") + "</ul>" +
     "<p><strong>Total TTC : " + esc(q.total != null ? q.total + " €" : "—") + "</strong></p>" +
-    "<p><a href='" + esc(d.caseUrl) + "'>Dossier en ligne</a>" + (pdfUrl ? " · <a href='" + esc(pdfUrl) + "'>PDF signé dans Drive</a>" : "") + "</p>" +
+    "<p><a href='" + esc(d.caseUrl) + "'>Dossier en ligne</a>" +
+      (pdfUrl ? " · <a href='" + esc(pdfUrl) + "'>Devis signé</a>" : "") +
+      (ficheUrl ? " · <a href='" + esc(ficheUrl) + "'>Fiche d'intervention</a>" : "") + "</p>" +
+    "<p style='color:#6b7a8f;font-size:12px'>En pièces jointes : " +
+      [d.signedPdf ? "le devis signé" : "", ficheUrl ? "la fiche d'intervention" : ""].filter(function (x) { return x; }).join(" et ") +
+      (d.signedPdf || ficheUrl ? "." : "aucune — voir le dossier Drive.") + "</p>" +
     "</div></div>"
   );
 }
