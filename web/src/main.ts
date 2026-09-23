@@ -628,7 +628,7 @@ function actionsBar(): string {
       label = '🎥 Filmer 10 secondes';
     }
   } else if (state.screen === 's5') {
-    label = state.submitting ? 'Envoi…' : 'Envoyer mon dossier';
+    label = state.submitting ? 'Envoi…' : 'Recevoir mon devis';
     disabled =
       state.submitting ||
       !CONTEXT_QUESTIONS.every(answered) ||

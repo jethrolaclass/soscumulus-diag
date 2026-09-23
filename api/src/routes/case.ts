@@ -104,7 +104,7 @@ export async function handleSubmit(
  * Closes the case and starts the synthesis, once.
  *
  * Shared with the quote route: a client who goes through the phone agent never
- * presses "Envoyer mon dossier", and their file must still close and be
+ * presses "Recevoir mon devis", and their file must still close and be
  * diagnosed the same way.
  */
 export async function closeAndDiagnose(
