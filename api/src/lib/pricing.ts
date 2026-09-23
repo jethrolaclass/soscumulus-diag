@@ -85,6 +85,8 @@ export interface Quote {
   needsHumanPricing: boolean;
   /** Why, in French, ready to be read aloud. Empty when the quote is firm. */
   reason: string;
+  /** Invented amounts, watermarked as such. Never true outside a demo. */
+  demo: boolean;
 }
 
 const UNPRICED = (reason: string): Quote => ({
@@ -93,7 +95,37 @@ const UNPRICED = (reason: string): Quote => ({
   replacement: null,
   needsHumanPricing: true,
   reason,
+  demo: false,
 });
+
+/**
+ * A quote for showing the process, not for pricing a job: fixed, plausible,
+ * and stamped "démonstration" on the document. It exists so partners can see
+ * a quote reach a phone and come back signed before a single real rate is
+ * known — and it must never be produced with `demo` false.
+ */
+function demoQuote(diagnosis: Diagnosis, replacement: Replacement | null): Quote {
+  const lines: QuoteLine[] = [
+    { label: 'Déplacement', amount: 49 },
+    { label: 'Main-d’œuvre', amount: 189 },
+  ];
+  if (diagnosis.interventionKind === 'replacement') {
+    lines.push({
+      label: replacement ? label(replacement.model) : 'Chauffe-eau de remplacement 150 L',
+      amount: 690,
+    });
+  } else {
+    lines.push({ label: 'Pièce de rechange (groupe de sécurité ou thermostat)', amount: 79 });
+  }
+  return {
+    lines,
+    total: lines.reduce((sum, l) => sum + l.amount, 0),
+    replacement,
+    needsHumanPricing: false,
+    reason: 'Montants de démonstration, sans valeur contractuelle.',
+    demo: true,
+  };
+}
 
 /** "Atlantic Zénéo 150 L vertical mural", as it is read to a client. */
 function label(h: Heater): string {
@@ -108,7 +140,10 @@ export function buildQuote(
   diagnosis: Diagnosis,
   nameplate: Nameplate | null,
   installation: Installation | null,
+  demo = false,
 ): Quote {
+  if (demo) return demoQuote(diagnosis, findReplacement(nameplate, installation));
+
   if (diagnosis.interventionKind === 'undetermined') {
     return UNPRICED(
       'Vos photos sont bien arrivées. Pour trancher entre une réparation et un ' +
@@ -157,5 +192,6 @@ export function buildQuote(
       replacement && replacement.undecided.length > 0
         ? 'Sous réserve que le modèle retenu se pose sur votre fixation actuelle.'
         : '',
+    demo: false,
   };
 }

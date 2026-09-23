@@ -163,3 +163,57 @@ export async function sendSafetyAlert(
     console.error('safety alert not delivered', err);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Intervention request — a quote came back signed                    */
+/* ------------------------------------------------------------------ */
+
+export interface InterventionRequestPayload {
+  ref: string;
+  token: string;
+  caseUrl: string;
+  to: string;
+  client: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    address: string;
+    city: string | null;
+  };
+  availability: string[];
+  diagnosis: unknown;
+  quote: unknown;
+  demo: boolean;
+  signedAt: string;
+  /** Base64 PDF, or null when Youtrust would not hand it over. */
+  signedPdf: string | null;
+}
+
+/**
+ * Apps Script mails the team and files the signed PDF next to the sheet. Same
+ * bridge as the report: Drive is the archive, and the account that owns it
+ * already sends the emails.
+ */
+export async function pushInterventionRequest(
+  env: Env,
+  payload: InterventionRequestPayload,
+): Promise<boolean> {
+  if (!env.REPORT_WEBHOOK_URL) return false;
+  try {
+    const res = await fetch(webhookUrl(env), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'intervention_request', ...payload }),
+    });
+    const answer = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (!res.ok || !answer?.ok) {
+      console.error('intervention request refused', res.status, answer?.error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('intervention request failed', err);
+    return false;
+  }
+}

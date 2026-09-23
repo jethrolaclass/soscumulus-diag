@@ -34,6 +34,11 @@ SMS_ALLOWLIST     = ""
 # while the agent is being tested by ear, because a tester who gives a random
 # number would otherwise put a real link on a stranger's phone.
 SMS_ALLOWLIST_VOICE = "+33621560983,+33699872414,+33684780721"
+# Youtrust sandbox: signatures that bind nobody. Do not point this at
+# production while QUOTE_DEMO still invents the amounts.
+YOUTRUST_BASE_URL   = "https://api-sandbox.yousign.app/v3"
+QUOTE_DEMO          = "1"
+INTERVENTION_EMAIL  = "maxime.peron+soscumulus@gmail.com"
 LOG_USAGE         = "true"
 
 [[d1_databases]]

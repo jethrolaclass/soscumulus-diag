@@ -88,6 +88,12 @@ export interface Answers {
   firstName?: string;
   lastName?: string;
   address?: string;
+  /**
+   * Typed on the last screen, never dictated to the voice agent: an email
+   * spelled out over the phone is wrong one time in two. The e-signature
+   * provider requires it on the signer, so a quote cannot be sent without it.
+   */
+  email?: string;
   /** Where water is visible. */
   waterLocation?: 'top' | 'bottom' | 'safety_group' | 'nowhere';
   /** Is there any hot water left? */

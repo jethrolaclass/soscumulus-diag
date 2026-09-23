@@ -496,6 +496,12 @@ function contactBlock(): string {
         </label>
       </div>
       <label class="field">
+        <span>E-mail</span>
+        <input type="email" id="email" autocomplete="email" inputmode="email"
+               value="${escapeHtml(a.email ?? '')}" placeholder="camille.martin@exemple.fr">
+        <small class="hint">Pour recevoir et signer votre devis.</small>
+      </label>
+      <label class="field">
         <span>Adresse complète</span>
         <input type="text" id="address" autocomplete="street-address"
                value="${escapeHtml(a.address ?? '')}"
@@ -687,7 +693,7 @@ function bind(): void {
  * is also when a phone keyboard closes.
  */
 function bindContact(): void {
-  for (const key of ['firstName', 'lastName'] as const) {
+  for (const key of ['firstName', 'lastName', 'email'] as const) {
     const input = app.querySelector<HTMLInputElement>(`#${key}`);
     if (!input) continue;
     input.addEventListener('input', () => {
@@ -798,7 +804,14 @@ const ALL_QUESTIONS = [SAFETY_QUESTION, ...PROBLEM_QUESTIONS, ...CONTEXT_QUESTIO
  */
 function contactComplete(): boolean {
   const a = state.answers;
-  return Boolean(a.firstName?.trim() && a.lastName?.trim() && a.address?.trim());
+  return Boolean(
+    a.firstName?.trim() && a.lastName?.trim() && a.address?.trim() && emailLooksValid(a.email),
+  );
+}
+
+/** Loose on purpose: the signature provider validates for real, we only stop typos. */
+function emailLooksValid(v: string | undefined): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((v ?? '').trim());
 }
 
 /** An empty multiple-choice array is an unanswered question, not an answer. */

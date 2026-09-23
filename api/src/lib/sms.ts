@@ -76,11 +76,13 @@ export function smsAllowed(
  * Quote text. No accents, like the diagnosis one: an accented character flips
  * the whole message to UCS-2 and halves the segment to 70 characters.
  */
-export function quoteMessage(ref: string, total: number): string {
+export function quoteMessage(ref: string, url: string): string {
+  // The amount is on the document, not in the text: a figure in a text is a
+  // figure quoted back at the office, and the signed PDF is what binds.
   return (
-    `SOS Cumulus, dossier ${ref} : votre devis est de ${total} EUR TTC, ` +
-    `pose et deplacement compris. Repondez OK a ce message pour l'accepter, ` +
-    `un technicien vous rappelle pour le rendez-vous.`
+    `SOS Cumulus, dossier ${ref} : votre devis est pret. ` +
+    `Signez-le en ligne : ${url} ` +
+    `Un technicien vous rappelle ensuite pour le rendez-vous.`
   );
 }
 

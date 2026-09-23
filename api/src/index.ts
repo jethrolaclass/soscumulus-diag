@@ -20,6 +20,8 @@ import {
 } from './routes/voice';
 import { handleQuote, handleQuoteAccept } from './routes/quote';
 import { handleGreeting } from './routes/greeting';
+import { handleShortLink, handleYoutrustWebhook } from './routes/signature';
+import { resumeQuotes } from './routes/signature';
 import { handleImage } from './routes/image';
 import { json, preflight, withCors, ApiHttpError } from './lib/http';
 
@@ -54,6 +56,8 @@ export default {
     }
 
     const n = await resumeDiagnoses(env);
+    const q = await resumeQuotes(env);
+    if (q > 0) console.log(`quotes sent: ${q}`);
     if (n > 0) console.log(`resumed ${n} pending diagnosis(es)`);
   },
 };
@@ -76,11 +80,21 @@ async function route(
     return handleImage(req, env, `${seg[1]}/${seg[2]}`);
   }
 
+  // GET /s/:short — the link the quote SMS carries, bounced to the signing page.
+  if (seg[0] === 's' && seg[1] && seg.length === 2 && method === 'GET') {
+    return handleShortLink(env, seg[1]);
+  }
+
   if (seg[0] !== 'api') return json({ error: 'not_found', message: '' }, 404);
 
   // POST /api/lead — called by Google Apps Script.
   if (seg[1] === 'lead' && seg.length === 2 && method === 'POST') {
     return handleLead(req, env, ctx);
+  }
+
+  // POST /api/youtrust/webhook — a quote was signed.
+  if (seg[1] === 'youtrust' && seg[2] === 'webhook' && method === 'POST') {
+    return handleYoutrustWebhook(req, env, ctx);
   }
 
   // Voice agent. Same data, same tables — only the way in differs.

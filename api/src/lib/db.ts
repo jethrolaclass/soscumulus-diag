@@ -437,3 +437,127 @@ export async function purgeExpired(env: Env): Promise<number> {
 
   return results.length;
 }
+
+/* ------------------------------------------------------------------ */
+/* Quotes                                                              */
+/* ------------------------------------------------------------------ */
+
+export interface QuoteRow {
+  caseToken: string;
+  short: string;
+  quote: import('./pricing').Quote;
+  demo: boolean;
+  status: 'created' | 'sent' | 'signed' | 'declined' | 'expired' | 'failed';
+  requestId: string | null;
+  signerId: string | null;
+  signatureLink: string | null;
+  createdAt: string;
+  signedAt: string | null;
+}
+
+interface QuoteRaw {
+  case_token: string;
+  short: string;
+  quote: string;
+  demo: number;
+  status: QuoteRow['status'];
+  youtrust_request_id: string | null;
+  youtrust_signer_id: string | null;
+  signature_link: string | null;
+  created_at: string;
+  signed_at: string | null;
+}
+
+const rowToQuote = (r: QuoteRaw): QuoteRow => ({
+  caseToken: r.case_token,
+  short: r.short,
+  quote: JSON.parse(r.quote),
+  demo: r.demo === 1,
+  status: r.status,
+  requestId: r.youtrust_request_id,
+  signerId: r.youtrust_signer_id,
+  signatureLink: r.signature_link,
+  createdAt: r.created_at,
+  signedAt: r.signed_at,
+});
+
+export async function saveQuote(
+  env: Env,
+  q: {
+    caseToken: string;
+    short: string;
+    quote: import('./pricing').Quote;
+    demo: boolean;
+    requestId: string;
+    signerId: string;
+    signatureLink: string;
+  },
+): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO quotes (case_token, short, quote, demo, status, youtrust_request_id,
+                         youtrust_signer_id, signature_link, created_at)
+     VALUES (?, ?, ?, ?, 'created', ?, ?, ?, ?)`,
+  )
+    .bind(q.caseToken, q.short, JSON.stringify(q.quote), q.demo ? 1 : 0,
+          q.requestId, q.signerId, q.signatureLink, new Date().toISOString())
+    .run();
+}
+
+/**
+ * Records a quote that could not be produced, so the sweep stops retrying it
+ * every two minutes — each retry left a draft on the signature provider. The
+ * voice route may still retry on request: it deletes this row first.
+ */
+export async function saveFailedQuote(env: Env, caseToken: string, error: string): Promise<void> {
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO quotes (case_token, short, quote, demo, status, created_at)
+     VALUES (?, ?, ?, 0, 'failed', ?)`,
+  )
+    .bind(caseToken, `failed-${caseToken.slice(0, 8)}`, JSON.stringify({ error: error.slice(0, 300) }), new Date().toISOString())
+    .run();
+}
+
+export async function deleteQuote(env: Env, caseToken: string): Promise<void> {
+  await env.DB.prepare('DELETE FROM quotes WHERE case_token = ?').bind(caseToken).run();
+}
+
+export async function setQuoteStatus(env: Env, caseToken: string, status: QuoteRow['status']): Promise<void> {
+  await env.DB.prepare('UPDATE quotes SET status = ? WHERE case_token = ?').bind(status, caseToken).run();
+}
+
+export async function markQuoteSigned(env: Env, caseToken: string): Promise<void> {
+  await env.DB.prepare("UPDATE quotes SET status = 'signed', signed_at = ? WHERE case_token = ?")
+    .bind(new Date().toISOString(), caseToken)
+    .run();
+}
+
+export async function getQuote(env: Env, caseToken: string): Promise<QuoteRow | null> {
+  const r = await env.DB.prepare('SELECT * FROM quotes WHERE case_token = ?').bind(caseToken).first<QuoteRaw>();
+  return r ? rowToQuote(r) : null;
+}
+
+export async function getQuoteByShort(env: Env, short: string): Promise<QuoteRow | null> {
+  const r = await env.DB.prepare('SELECT * FROM quotes WHERE short = ?').bind(short).first<QuoteRaw>();
+  return r ? rowToQuote(r) : null;
+}
+
+export async function getQuoteByRequest(env: Env, requestId: string): Promise<QuoteRow | null> {
+  const r = await env.DB.prepare('SELECT * FROM quotes WHERE youtrust_request_id = ?').bind(requestId).first<QuoteRaw>();
+  return r ? rowToQuote(r) : null;
+}
+
+/**
+ * Submitted, diagnosed, and never quoted. The cron picks these up because the
+ * submission request has no wall clock left for a quote after the synthesis.
+ */
+export async function findCasesAwaitingQuote(env: Env, limit = 5): Promise<string[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT c.token FROM cases c
+     LEFT JOIN quotes q ON q.case_token = c.token
+     WHERE c.status = 'submitted' AND c.diagnosis IS NOT NULL AND q.case_token IS NULL
+     ORDER BY c.updated_at ASC LIMIT ?`,
+  )
+    .bind(limit)
+    .all<{ token: string }>();
+  return results.map((r) => r.token);
+}

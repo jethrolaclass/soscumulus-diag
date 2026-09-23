@@ -41,6 +41,16 @@ export interface Env {
   SMS_ALLOWLIST?: string;
   /** Same shape, applied to texts the voice agent triggers. */
   SMS_ALLOWLIST_VOICE?: string;
+
+  /** Youtrust (ex-Yousign). Sandbox host until real prices exist. */
+  YOUTRUST_API_KEY: string;
+  YOUTRUST_BASE_URL: string;
+  /** Returned once when the webhook subscription is created. */
+  YOUTRUST_WEBHOOK_SECRET?: string;
+  /** "1" prints invented amounts on a watermarked quote, for demos only. */
+  QUOTE_DEMO?: string;
+  /** Who receives the intervention request when a quote is signed. */
+  INTERVENTION_EMAIL: string;
   /** "true" to log token consumption. */
   LOG_USAGE?: string;
 }

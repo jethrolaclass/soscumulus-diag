@@ -55,6 +55,27 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS idx_events_case ON events (case_token);
 
+-- The quote sent for signature. One per case: a second quote is a new case
+-- for the technician, not a new row. `youtrust_*` ids let the webhook find the
+-- case back; `short` is the token behind diag.soscumulus.fr/s/<short>, which is
+-- what the SMS carries because the signing link itself is too long for one
+-- segment.
+CREATE TABLE IF NOT EXISTS quotes (
+  case_token            TEXT PRIMARY KEY,
+  short                 TEXT NOT NULL UNIQUE,
+  quote                 TEXT NOT NULL,          -- Quote JSON, as computed
+  demo                  INTEGER NOT NULL DEFAULT 0,
+  status                TEXT NOT NULL,          -- created | sent | signed | declined | expired | failed
+  youtrust_request_id   TEXT,
+  youtrust_signer_id    TEXT,
+  signature_link        TEXT,
+  created_at            TEXT NOT NULL,
+  signed_at             TEXT,
+  FOREIGN KEY (case_token) REFERENCES cases (token) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_quotes_request ON quotes (youtrust_request_id);
+
 -- Client reference sequence. A table rather than AUTOINCREMENT: the reference
 -- must stay stable and readable even after a case is purged.
 CREATE TABLE IF NOT EXISTS counters (
