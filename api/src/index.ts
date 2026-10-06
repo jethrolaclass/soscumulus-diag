@@ -22,7 +22,7 @@ import {
 } from './routes/voice';
 import { handleQuote, handleQuoteAccept } from './routes/quote';
 import { handleGreeting } from './routes/greeting';
-import { handleMariePage } from './routes/marie';
+import { handleMarieCredits, handleMariePage } from './routes/marie';
 import { handleShortLink, handleYoutrustWebhook } from './routes/signature';
 import { resumeQuotes } from './routes/signature';
 import { handleImage } from './routes/image';
@@ -91,6 +91,10 @@ async function route(
   // GET /marie — the voice agent's test page, behind named accounts.
   if (seg[0] === 'marie' && seg.length === 1 && method === 'GET') {
     return handleMariePage(req, env);
+  }
+  // GET /marie/credits — remaining ElevenLabs and Brevo credits, same accounts.
+  if (seg[0] === 'marie' && seg[1] === 'credits' && seg.length === 2 && method === 'GET') {
+    return handleMarieCredits(req, env);
   }
 
   if (seg[0] !== 'api') return json({ error: 'not_found', message: '' }, 404);

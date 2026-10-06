@@ -40,7 +40,8 @@ function basicCredentials(req: Request): [string, string] | null {
   }
 }
 
-export async function handleMariePage(req: Request, env: Env): Promise<Response> {
+/** The account name when the request carries valid credentials, else the refusal to send back. */
+async function authorise(req: Request, env: Env): Promise<string | Response> {
   const accounts = new Map(
     (env.MARIE_USERS ?? '')
       .split(',')
@@ -64,8 +65,14 @@ export async function handleMariePage(req: Request, env: Env): Promise<Response>
       },
     });
   }
+  return given[0].toLowerCase();
+}
 
-  await logEvent(env, null, 'marie_page_opened', given[0].toLowerCase());
+export async function handleMariePage(req: Request, env: Env): Promise<Response> {
+  const user = await authorise(req, env);
+  if (user instanceof Response) return user;
+
+  await logEvent(env, null, 'marie_page_opened', user);
   return new Response(page, {
     headers: {
       'content-type': 'text/html; charset=utf-8',
@@ -74,4 +81,65 @@ export async function handleMariePage(req: Request, env: Env): Promise<Response>
       'x-robots-tag': 'noindex, nofollow',
     },
   });
+}
+
+/**
+ * What is left to spend, for whoever is about to test: every conversation
+ * burns ElevenLabs credits and every link burns a Brevo one, and a tester who
+ * runs dry mid-call gets an error that says nothing about why.
+ *
+ * Each figure is fetched on its own and comes back null when its provider
+ * refuses or is unreachable: one missing balance must not hide the other.
+ */
+export async function handleMarieCredits(req: Request, env: Env): Promise<Response> {
+  const user = await authorise(req, env);
+  if (user instanceof Response) return user;
+
+  const [elevenlabs, brevo] = await Promise.all([elevenLabsBalance(env), brevoSmsBalance(env)]);
+  return new Response(JSON.stringify({ elevenlabs, brevo }), {
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, no-store' },
+  });
+}
+
+async function elevenLabsBalance(
+  env: Env,
+): Promise<{ remaining: number; limit: number; resetsAt: string | null } | null> {
+  // A key of its own, with the single permission to read the subscription: the
+  // one that edits the agent has no business living in the Worker.
+  if (!env.ELEVENLABS_READ_KEY) return null;
+  try {
+    const res = await fetch('https://api.elevenlabs.io/v1/user/subscription', {
+      headers: { 'xi-api-key': env.ELEVENLABS_READ_KEY },
+    });
+    if (!res.ok) return null;
+    const d = (await res.json()) as {
+      character_count?: number;
+      character_limit?: number;
+      next_character_count_reset_unix?: number | null;
+    };
+    if (typeof d.character_count !== 'number' || typeof d.character_limit !== 'number') return null;
+    return {
+      remaining: Math.max(0, d.character_limit - d.character_count),
+      limit: d.character_limit,
+      resetsAt: d.next_character_count_reset_unix
+        ? new Date(d.next_character_count_reset_unix * 1000).toISOString()
+        : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function brevoSmsBalance(env: Env): Promise<{ credits: number } | null> {
+  try {
+    const res = await fetch('https://api.brevo.com/v3/account', {
+      headers: { 'api-key': env.SMS_API_KEY, accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const d = (await res.json()) as { plan?: Array<{ type?: string; credits?: number }> };
+    const sms = d.plan?.find((p) => p.type === 'sms');
+    return typeof sms?.credits === 'number' ? { credits: sms.credits } : null;
+  } catch {
+    return null;
+  }
 }

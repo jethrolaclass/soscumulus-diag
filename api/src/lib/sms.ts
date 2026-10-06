@@ -197,6 +197,17 @@ async function post(
     throw new SmsError(`Brevo ${res.status}`, res.status);
   }
 
-  await logEvent(env, token, 'sms_sent', `${kind} ${recipient}`);
+  // Brevo says what the text cost and what is left. Kept on the event so the
+  // price of one SMS in credits is a measured figure, not a guess — the
+  // balance shown on the test page is in credits, not in messages.
+  const receipt = (await res.json().catch(() => null)) as {
+    usedCredits?: number;
+    remainingCredits?: number;
+  } | null;
+  const cost =
+    typeof receipt?.usedCredits === 'number'
+      ? ` credits=${receipt.usedCredits} left=${receipt.remainingCredits ?? '?'}`
+      : '';
+  await logEvent(env, token, 'sms_sent', `${kind} ${recipient}${cost}`);
   return true;
 }

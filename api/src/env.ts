@@ -51,6 +51,8 @@ export interface Env {
   QUOTE_DEMO?: string;
   /** `name:sha256(password)` pairs allowed on the agent's test page. Unset = closed. */
   MARIE_USERS?: string;
+  /** ElevenLabs key limited to reading the subscription, for the balance shown on that page. */
+  ELEVENLABS_READ_KEY?: string;
   /** Who receives the intervention request when a quote is signed. */
   INTERVENTION_EMAIL: string;
   /** "true" to log token consumption. */

@@ -56,6 +56,13 @@
   }
   .tag.hot { background: var(--orange); }
   .card b { color: var(--navy); }
+  .credits { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 20px; }
+  .credit { background: var(--card); border: 1px solid #e3e9f2; border-radius: 12px; padding: 12px 16px; }
+  .credit .k { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); }
+  .credit .v { font-size: 1.45rem; font-weight: 800; color: var(--navy); line-height: 1.25; margin-top: 2px; }
+  .credit .v.low { color: #c2410c; }
+  .credit .s { font-size: .8rem; color: var(--gray); margin-top: 2px; }
+  @media (max-width: 420px) { .credits { grid-template-columns: 1fr; } }
   ul.listen { padding-left: 18px; line-height: 1.75; margin: 0; }
   ul.listen li::marker { color: var(--orange); }
   .state {
@@ -86,6 +93,11 @@
 <main class="wrap">
   <h1>Parler à Marie</h1>
   <p class="lead">Cette page appelle l'agent vocal directement depuis le navigateur, sans numéro de téléphone. Même agent, même voix, même déroulé qu'au bout du fil.</p>
+
+  <div class="credits" id="credits" hidden>
+    <div class="credit"><div class="k">Crédits ElevenLabs restants</div><div class="v" id="el-v">…</div><div class="s" id="el-s">&nbsp;</div></div>
+    <div class="credit"><div class="k">Crédits SMS Brevo restants</div><div class="v" id="sms-v">…</div><div class="s" id="sms-s">&nbsp;</div></div>
+  </div>
 
   <div class="how">
     <b>1.</b> Cliquez sur la bulle en bas à droite.&nbsp;
@@ -130,6 +142,41 @@
     Cette page parle à l'agent en service, celui qui répondra au téléphone. L'accès est nominatif : ne transmettez pas vos identifiants.
   </div>
 </main>
+
+<script>
+  // Remaining credits, from the Worker that serves this page. Hidden when the
+  // file is opened from disk: there is no server to ask.
+  (function () {
+    if (location.protocol === 'file:') return;
+    var box = document.getElementById('credits');
+    var fr = function (n) { return Math.round(n).toLocaleString('fr-FR'); };
+    function show(v, s, value, sub, low) {
+      var el = document.getElementById(v);
+      el.textContent = value; el.classList.toggle('low', !!low);
+      document.getElementById(s).textContent = sub;
+    }
+    function load() {
+      fetch('/marie/credits', { cache: 'no-store', credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d) return;
+          box.hidden = false;
+          if (d.elevenlabs) {
+            var e = d.elevenlabs;
+            var reset = e.resetsAt ? ' · renouvelés le ' + new Date(e.resetsAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '';
+            show('el-v', 'el-s', fr(e.remaining), 'sur ' + fr(e.limit) + reset, e.remaining < e.limit * 0.1);
+          } else show('el-v', 'el-s', '—', 'solde indisponible', false);
+          if (d.brevo) show('sms-v', 'sms-s', fr(d.brevo.credits), 'crédits SMS', d.brevo.credits < 20);
+          else show('sms-v', 'sms-s', '—', 'solde indisponible', false);
+        })
+        .catch(function () {});
+    }
+    load();
+    // A call spends credits: refresh when the tester comes back to the tab, and every two minutes.
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+    setInterval(function () { if (!document.hidden) load(); }, 120000);
+  })();
+</script>
 
 <elevenlabs-convai id="marie" agent-id="agent_3201m2jt9ec5ejkv1c4ycg2nqsdc"></elevenlabs-convai>
 <script>
