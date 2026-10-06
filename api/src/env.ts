@@ -49,6 +49,8 @@ export interface Env {
   YOUTRUST_WEBHOOK_SECRET?: string;
   /** "1" prints invented amounts on a watermarked quote, for demos only. */
   QUOTE_DEMO?: string;
+  /** `name:sha256(password)` pairs allowed on the agent's test page. Unset = closed. */
+  MARIE_USERS?: string;
   /** Who receives the intervention request when a quote is signed. */
   INTERVENTION_EMAIL: string;
   /** "true" to log token consumption. */
